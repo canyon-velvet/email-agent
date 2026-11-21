@@ -2,6 +2,8 @@
 
 from importlib import metadata
 from typing import Annotated
+from pathlib import Path
+from email_agent.mail import MailProvider, FixtureProvider
 
 import typer
 
@@ -29,3 +31,24 @@ def main(
     ] = False,
 ) -> None:
     """Triage an inbox with an AI agent."""
+
+def _open_mailbox(path) -> MailProvider:
+    return FixtureProvider(path)
+
+@app.command()
+def inbox(
+    mailbox: Annotated[
+        Path,
+        typer.Option(
+            "--mailbox",
+            help='open the mailbox at this path'
+        )
+    ]
+) -> None:
+    provider = _open_mailbox(mailbox)
+    summaries = provider.list_unread()
+    if not summaries:
+        typer.echo('No unread messages.')
+    for summary in summaries:
+        typer.echo(f"{summary.id}  {summary.sender}  {summary.subject}  {summary.snippet}")
+
