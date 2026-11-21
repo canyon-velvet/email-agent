@@ -7,10 +7,16 @@ which CLI library the implementation uses.
 import shutil
 import subprocess
 import sysconfig
-from email.utils import parseaddr
 from importlib.metadata import version
 
-from email_agent.mail import FixtureProvider
+# The contract mailbox's unread inbox messages, newest first:
+# (id, sender address, subject, start of snippet).
+UNREAD_ROWS = [
+    ('19a8f3c2b1d04e01', 'alice@example.com', 'Re: Lunch on Thursday?', 'Are you free for lunch'),
+    ('19a80b17c3f25b02', 'ci@example.com', 'Build failed on main', 'The build for commit'),
+    ('19a84d6b9e1c7a03', 'bob@example.com', 'Invoice 1042 for November', 'Hi, please find'),
+    ('19a83c5d7e9f1a07', 'sam@example.com', '', 'Quick question about the trip'),
+]
 
 
 def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -30,19 +36,18 @@ def test_version_flag_prints_the_installed_version():
 
 
 def test_inbox_prints_one_line_per_unread_message_newest_first(contract_mailbox):
-    expected = FixtureProvider(contract_mailbox).list_unread()
-
     result = run_cli('inbox', '--mailbox', str(contract_mailbox))
 
     assert result.returncode == 0, result.stderr
     lines = [line for line in result.stdout.splitlines() if line.strip()]
-    assert len(lines) == len(expected), result.stdout
-    for line, message in zip(lines, expected, strict=True):
-        assert message.id in line
-        assert message.subject in line
-        assert message.snippet in line
-        name, address = parseaddr(message.sender)
-        assert name in line or address in line
+    assert len(lines) == len(UNREAD_ROWS), result.stdout
+    for line, (message_id, address, subject, snippet_start) in zip(lines, UNREAD_ROWS, strict=True):
+        assert message_id in line
+        assert address in line
+        assert subject in line
+        assert snippet_start in line
+    # A missing Subject shows as empty, not as the text "None".
+    assert 'None' not in result.stdout
     # Text from the lunch message's body (not its snippet) is never printed.
     assert 'ramen place on 5th Street' not in result.stdout
 
@@ -54,3 +59,10 @@ def test_inbox_says_so_when_nothing_is_unread(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert 'no unread messages' in result.stdout.lower()
+
+
+def test_inbox_rejects_a_missing_mailbox_with_a_short_error(tmp_path):
+    result = run_cli('inbox', '--mailbox', str(tmp_path / 'does-not-exist'))
+
+    assert result.returncode != 0
+    assert 'Traceback' not in result.stderr

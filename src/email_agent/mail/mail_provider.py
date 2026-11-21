@@ -4,7 +4,11 @@ from typing import Literal, Protocol
 
 @dataclass(frozen=True)
 class MessageSummary:
-    """One message as an inbox listing shows it: ids, headers, and snippet, never the body."""
+    """One message as an inbox listing shows it: ids, headers, and snippet, never the body.
+
+    All fields are plain text. A missing header is an empty string, and `snippet` is
+    unescaped (Gmail's API returns it HTML-escaped, e.g. `&#39;`).
+    """
 
     id: str
     thread_id: str

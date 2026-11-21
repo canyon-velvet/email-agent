@@ -13,5 +13,7 @@ def contract_mailbox() -> Path:
 
     Layout: `messages.json` holds Gmail message metadata (id, threadId, labelIds,
     internalDate, snippet); each message's raw RFC 2822 source is in `<id>.eml`.
+    As in Gmail, a snippet is the first ~200 characters of the body text with
+    whitespace collapsed, and `labelIds` is absent when a message has no labels.
     """
     return FIXTURES / 'mailboxes' / 'contract'

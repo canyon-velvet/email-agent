@@ -4,7 +4,7 @@
     "threadId": "19a84d6b9e1c7a03",
     "labelIds": ["UNREAD", "INBOX", "CATEGORY_PERSONAL"],
     "internalDate": "1794913500000",
-    "snippet": "Hi, please find the November invoice details below."
+    "snippet": "Hi, please find the November invoice details below. Amount due: 1,200 USD by December 1. Thanks, Bob"
   },
   {
     "id": "19a8d2e3f4a5b606",
@@ -14,11 +14,17 @@
     "snippet": "Claim your prize now by replying with your bank details."
   },
   {
+    "id": "19a82a4b6c8d0e08",
+    "threadId": "19a82a4b6c8d0e08",
+    "internalDate": "1794736800000",
+    "snippet": "Your receipt for order 77 is attached."
+  },
+  {
     "id": "19a8f3c2b1d04e01",
     "threadId": "19a7e0d1c2b3a400",
     "labelIds": ["INBOX", "UNREAD", "IMPORTANT", "CATEGORY_PERSONAL"],
     "internalDate": "1795079700000",
-    "snippet": "Are you free for lunch on Thursday? I was thinking about noon."
+    "snippet": "Are you free for lunch on Thursday? I was thinking about noon, since my morning meetings usually finish around half past eleven and the afternoon is full of design reviews. If noon does not work for y"
   },
   {
     "id": "19a91f0a2b3c4d04",
@@ -28,6 +34,13 @@
     "snippet": "Hiking on Saturday still works for me."
   },
   {
+    "id": "19a83c5d7e9f1a07",
+    "threadId": "19a83c5d7e9f1a07",
+    "labelIds": ["INBOX", "UNREAD", "CATEGORY_PERSONAL"],
+    "internalDate": "1794839400000",
+    "snippet": "Quick question about the trip budget: are flights included?"
+  },
+  {
     "id": "19a87b5c6d7e8f05",
     "threadId": "19a87b5c6d7e8f05",
     "labelIds": ["UNREAD", "CATEGORY_UPDATES"],
@@ -35,10 +48,10 @@
     "snippet": "Here are the top stories from this week."
   },
   {
-    "id": "19a8a1e7c3f25b02",
-    "threadId": "19a8a1e7c3f25b02",
+    "id": "19a80b17c3f25b02",
+    "threadId": "19a80b17c3f25b02",
     "labelIds": ["INBOX", "UNREAD", "CATEGORY_UPDATES"],
     "internalDate": "1795020000000",
-    "snippet": "The build for commit 3f2a91c failed in the test step."
+    "snippet": "The build for commit 3f2a91c failed in the test step. View the logs in the CI dashboard."
   }
 ]
