@@ -20,6 +20,11 @@ dev = [
     "ruff>=0.17.6",
 ]
 
+[tool.uv]
+# One uv version range for local runs and CI (setup-uv reads it). When upgrading
+# uv, bump this and the uv_build range in [build-system] together.
+required-version = ">=0.9.28,<0.10"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

@@ -5,7 +5,7 @@ from typing import Annotated
 
 import typer
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, add_completion=False)
 
 
 def _print_version(value: bool) -> None:
