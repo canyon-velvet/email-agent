@@ -1,0 +1,32 @@
+[project]
+name = "email-agent"
+version = "0.1.0"
+description = "An email agent built on a home-built harness: tools, hooks, memory, context engineering, and evals."
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.29.2",
+]
+
+[project.scripts]
+email-agent = "email_agent.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, import sorting, pyupgrade, bugbear
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
