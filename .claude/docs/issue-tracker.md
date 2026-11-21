@@ -15,8 +15,11 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 
 ## Project conventions
 
-- The maintainer writes all implementation code. Spec and implementation tickets get `ready-for-human`, not `ready-for-agent`.
-- Agents handle the work around the code: branches, commits, pushes, PRs, PR descriptions, and code review. Agents never merge or push to `main`.
+- **Who writes what:** the maintainer writes all implementation code; Claude writes all tests. Tests land first on the ticket branch, derived from the ticket's acceptance criteria, and the maintainer implements until they pass.
+- **Ticket size:** one ticket = one PR of about 200 changed lines or fewer, tests included, so a human can write and review it. Split anything larger.
+- **Labels:** spec and implementation tickets get `ready-for-human`, not `ready-for-agent`.
+- **Review:** every PR gets an independent review from a fresh reviewer agent that wrote none of it. It reviews both the maintainer's code and Claude's tests.
+- **Git:** Claude creates branches, commits, pushes, opens PRs, and writes PR descriptions. Only the maintainer merges; nobody pushes to `main`.
 
 ## Pull requests as a triage surface
 
