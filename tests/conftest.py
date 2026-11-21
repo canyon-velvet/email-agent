@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent / 'fixtures'
 
 
 @pytest.fixture
@@ -14,4 +14,4 @@ def contract_mailbox() -> Path:
     Layout: `messages.json` holds Gmail message metadata (id, threadId, labelIds,
     internalDate, snippet); each message's raw RFC 2822 source is in `<id>.eml`.
     """
-    return FIXTURES / "mailboxes" / "contract"
+    return FIXTURES / 'mailboxes' / 'contract'

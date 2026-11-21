@@ -1,18 +1,19 @@
 """Command-line entry point for email-agent."""
 
 from importlib import metadata
-from typing import Annotated
 from pathlib import Path
-from email_agent.mail import MailProvider, FixtureProvider
+from typing import Annotated
 
 import typer
+
+from email_agent.mail import FixtureProvider, MailProvider
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
 
 def _print_version(value: bool) -> None:
     if value:
-        typer.echo(f"email-agent {metadata.version('email-agent')}")
+        typer.echo(f'email-agent {metadata.version("email-agent")}')
         raise typer.Exit()
 
 
@@ -23,32 +24,29 @@ def main(
     show_version: Annotated[
         bool,
         typer.Option(
-            "--version",
+            '--version',
             callback=_print_version,
             is_eager=True,
-            help="Show the version and exit.",
+            help='Show the version and exit.',
         ),
     ] = False,
 ) -> None:
     """Triage an inbox with an AI agent."""
 
+
 def _open_mailbox(path) -> MailProvider:
+    """Open the mailbox at `path`. The only place that picks a provider implementation."""
     return FixtureProvider(path)
+
 
 @app.command()
 def inbox(
-    mailbox: Annotated[
-        Path,
-        typer.Option(
-            "--mailbox",
-            help='open the mailbox at this path'
-        )
-    ]
+    mailbox: Annotated[Path, typer.Option('--mailbox', help='Open the mailbox at this path.')],
 ) -> None:
+    """List unread inbox messages, newest first."""
     provider = _open_mailbox(mailbox)
     summaries = provider.list_unread()
     if not summaries:
         typer.echo('No unread messages.')
     for summary in summaries:
-        typer.echo(f"{summary.id}  {summary.sender}  {summary.subject}  {summary.snippet}")
-
+        typer.echo(f'{summary.id}  {summary.sender}  {summary.subject}  {summary.snippet}')
