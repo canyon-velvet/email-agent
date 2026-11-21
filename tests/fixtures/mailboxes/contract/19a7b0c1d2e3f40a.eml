@@ -1,0 +1,23 @@
+From: Example News <news@example.org>
+To: Me <me@example.com>
+Subject: This week in science
+Date: Fri, 13 Nov 2026 18:00:00 +0000
+Message-ID: <weekly-science-46@example.org>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { font-family: Georgia, serif; }
+</style>
+<script>function trackOpen() { return 1; }</script>
+</head>
+<body>
+<h1>This week in science</h1>
+<p>Astronomers found water vapour around a distant planet.</p>
+<p>Fish &amp; chips may be healthier than we thought.
+<a href="https://news.example.org/fish">Read the full story</a></p>
+</body>
+</html>

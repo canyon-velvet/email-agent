@@ -53,5 +53,26 @@
     "labelIds": ["INBOX", "UNREAD", "CATEGORY_UPDATES"],
     "internalDate": "1795020000000",
     "snippet": "The build for commit 3f2a91c failed in the test step. View the logs in the CI dashboard."
+  },
+  {
+    "id": "19a7c1d2e3f40a09",
+    "threadId": "19a7c1d2e3f40a09",
+    "labelIds": ["INBOX", "CATEGORY_UPDATES"],
+    "internalDate": "1794643200000",
+    "snippet": "Your order 5521 has shipped. Track it at https://shop.example.com/track/5521"
+  },
+  {
+    "id": "19a7b0c1d2e3f40a",
+    "threadId": "19a7b0c1d2e3f40a",
+    "labelIds": ["CATEGORY_PROMOTIONS"],
+    "internalDate": "1794592800000",
+    "snippet": "This week in science Astronomers found water vapour around a distant planet. Fish & chips may be healthier than we thought. Read the full story"
+  },
+  {
+    "id": "19a7a0b1c2d3e40b",
+    "threadId": "19a7a0b1c2d3e40b",
+    "labelIds": ["INBOX"],
+    "internalDate": "1794484800000",
+    "snippet": "Rendez-vous au café à 10h, près de la gare."
   }
 ]
