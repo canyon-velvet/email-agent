@@ -41,7 +41,12 @@ def _open_mailbox(path: Path) -> MailProvider:
 
 @app.command()
 def inbox(
-    mailbox: Annotated[Path, typer.Option('--mailbox', exists=True, file_okay=False, help='Open the mailbox at this path.')],
+    mailbox: Annotated[
+        Path,
+        typer.Option(
+            '--mailbox', exists=True, file_okay=False, help='Open the mailbox at this path.'
+        ),
+    ],
 ) -> None:
     """List unread inbox messages, newest first."""
     provider = _open_mailbox(mailbox)

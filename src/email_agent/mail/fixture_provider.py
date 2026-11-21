@@ -12,6 +12,7 @@ class FixtureProvider:
     The directory holds `messages.json` (Gmail message metadata: id, threadId,
     labelIds, internalDate, snippet) and one raw RFC 2822 `<id>.eml` per message.
     """
+
     data_origin: DataOrigin = 'synthetic'
 
     def __init__(self, mailbox_dir: Path) -> None:
