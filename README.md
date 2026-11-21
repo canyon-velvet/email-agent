@@ -21,6 +21,9 @@ uv sync
 ```sh
 uv run email-agent --version
 uv run email-agent --help
+
+# List unread inbox messages from the bundled fixture mailbox (fake, Gmail-shaped data)
+uv run email-agent inbox --mailbox tests/fixtures/mailboxes/contract
 ```
 
 ## Develop

@@ -1,0 +1,11 @@
+From: CI Bot <ci@example.com>
+To: Me <me@example.com>
+Subject: Build failed on main
+Date: Wed, 18 Nov 2026 16:40:00 +0000
+Message-ID: <build-3f2a91c@example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+The build for commit 3f2a91c failed in the test step.
+
+View the logs in the CI dashboard.
