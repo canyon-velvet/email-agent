@@ -31,14 +31,15 @@ LUNCH_THREAD = '19a7e0d1c2b3a400'  # a reply, so its thread ID differs from its 
 LUNCH_LABELS = frozenset({'INBOX', 'UNREAD', 'IMPORTANT', 'CATEGORY_PERSONAL'})
 NO_LABELS = '19a82a4b6c8d0e08'  # archived and read: Gmail omits labelIds entirely
 
-# Each mailbox change, as a test calls it. Each maps onto one Gmail API call:
-# messages.modify for the label changes, drafts.create for the draft.
+# Each mailbox change, as a test calls it. Each maps onto a Gmail API call:
+# messages.modify for the label changes, messages.trash, and drafts.create.
 CHANGES = {
     'star': lambda provider, message_id: provider.star(message_id),
     'mark_read': lambda provider, message_id: provider.mark_read(message_id),
     'archive': lambda provider, message_id: provider.archive(message_id),
     'apply_label': lambda provider, message_id: provider.apply_label(message_id, 'Receipts'),
     'report_spam': lambda provider, message_id: provider.report_spam(message_id),
+    'trash': lambda provider, message_id: provider.trash(message_id),
     'create_draft': lambda provider, message_id: provider.create_draft(message_id, 'Thanks!'),
 }
 
@@ -172,7 +173,7 @@ def test_each_label_change_matches_gmail(provider, change):
     assert {id_: labels for id_, labels in after.items() if id_ != LUNCH} == others_before
 
 
-@pytest.mark.parametrize('change', LABEL_CHANGES)
+@pytest.mark.parametrize('change', [*LABEL_CHANGES, 'trash'])
 def test_label_changes_are_idempotent(provider, change):
     # An agent may repeat an action, e.g. after a retry; doing it twice must be safe.
     CHANGES[change](provider, LUNCH)
@@ -181,6 +182,20 @@ def test_label_changes_are_idempotent(provider, change):
     CHANGES[change](provider, LUNCH)
 
     assert provider.snapshot() == once
+
+
+def test_trash_adds_trash_and_takes_the_message_out_of_the_inbox_listing(provider):
+    # Gmail's messages.trash. Its docs don't say what it does to INBOX and the other
+    # labels, so the contract pins only TRASH and that the message leaves list_unread.
+    before = provider.snapshot()
+
+    provider.trash(LUNCH)
+
+    after = provider.snapshot()
+    assert 'TRASH' in after[LUNCH]
+    assert LUNCH not in [summary.id for summary in provider.list_unread()]
+    others_before = {id_: labels for id_, labels in before.items() if id_ != LUNCH}
+    assert {id_: labels for id_, labels in after.items() if id_ != LUNCH} == others_before
 
 
 def test_label_changes_show_up_in_list_unread(provider):
@@ -250,6 +265,7 @@ def test_the_interface_offers_no_way_to_send():
         'mark_read',
         'archive',
         'report_spam',
+        'trash',
         'apply_label',
         'create_draft',
     }
