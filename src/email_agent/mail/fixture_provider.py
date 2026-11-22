@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from email_agent.mail.mail_provider import (
+    SYSTEM_LABELS,
     DataOrigin,
     Draft,
     Message,
@@ -118,6 +119,8 @@ class FixtureProvider:
 
         Fixture labels are plain names, so there is no label to create first.
         """
+        if not label_name or label_name.upper() in SYSTEM_LABELS:
+            raise ValueError(f'not a user label name: {label_name!r}')
         self._modify(message_id, add={label_name})
 
     def create_draft(self, message_id: str, body: str) -> Draft:

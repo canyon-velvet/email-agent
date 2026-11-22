@@ -56,6 +56,27 @@ class MessageNotFoundError(LookupError):
 # Where data came from. The model router (#10) uses it to decide which models may see it.
 DataOrigin = Literal['email_content', 'synthetic', 'public']
 
+# Gmail's system labels, whose IDs equal their names. No user label may use one of
+# these names; they change only through MailProvider's dedicated methods.
+SYSTEM_LABELS = frozenset(
+    {
+        'INBOX',
+        'SPAM',
+        'TRASH',
+        'UNREAD',
+        'STARRED',
+        'IMPORTANT',
+        'SENT',
+        'DRAFT',
+        'CHAT',
+        'CATEGORY_PERSONAL',
+        'CATEGORY_SOCIAL',
+        'CATEGORY_PROMOTIONS',
+        'CATEGORY_UPDATES',
+        'CATEGORY_FORUMS',
+    }
+)
+
 
 class MailProvider(Protocol):
     """A mailbox the agent reads and changes: fixture files now, Gmail later.
