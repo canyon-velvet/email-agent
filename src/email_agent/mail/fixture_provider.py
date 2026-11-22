@@ -32,7 +32,7 @@ class FixtureProvider:
         messages = json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))
         for msg in messages:
             self._metadata[msg['id']] = msg
-            self._labels[msg['id']] = set(msg.get('labelIds', []))
+            self._labels[msg['id']] = set(msg.pop('labelIds', []))
         self._drafts: list[Draft] = []
 
     def list_unread(self) -> list[MessageSummary]:
@@ -109,6 +109,9 @@ class FixtureProvider:
     def report_spam(self, message_id: str) -> None:
         """Add SPAM and remove INBOX (see `MailProvider.report_spam`)."""
         self._modify(message_id, add={'SPAM'}, remove={'INBOX'})
+
+    def trash(self, message_id: str) -> None:
+        self._modify(message_id, add={'TRASH'}, remove={'INBOX'})
 
     def apply_label(self, message_id: str, label_name: str) -> None:
         """Add a user label by name (see `MailProvider.apply_label`).
