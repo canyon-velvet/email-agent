@@ -120,7 +120,8 @@ class FixtureProvider:
 
         Fixture labels are plain names, so there is no label to create first.
         """
-        if not label_name or label_name.upper() in SYSTEM_LABELS:
+        name = label_name.strip()  # so ' INBOX' and blank names are caught too
+        if not name or name.upper() in SYSTEM_LABELS:
             raise ValueError(f'not a user label name: {label_name!r}')
         self._modify(message_id, add={label_name})
 

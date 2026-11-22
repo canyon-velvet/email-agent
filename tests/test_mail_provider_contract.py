@@ -239,7 +239,22 @@ def test_create_draft_stores_a_reply_on_the_message_thread(provider):
     assert provider.snapshot() == labels_before  # drafting changes no labels
 
 
-@pytest.mark.parametrize('label_name', ['INBOX', 'inbox', 'TRASH', 'SPAM', 'UNREAD', 'DRAFT', ''])
+@pytest.mark.parametrize(
+    'label_name',
+    [
+        'INBOX',
+        'inbox',
+        'TRASH',
+        'SPAM',
+        'UNREAD',
+        'STARRED',
+        'DRAFT',
+        'category_updates',
+        '',
+        '   ',
+        ' INBOX',
+    ],
+)
 def test_apply_label_rejects_system_labels_and_empty_names(provider, label_name):
     # Otherwise the generic label change is a back door around the dedicated ones,
     # e.g. INBOX un-archives and rescues spam. Gmail rejects these user labels too.

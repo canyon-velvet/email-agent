@@ -57,7 +57,9 @@ class MessageNotFoundError(LookupError):
 DataOrigin = Literal['email_content', 'synthetic', 'public']
 
 # Gmail's system labels, whose IDs equal their names. No user label may use one of
-# these names; they change only through MailProvider's dedicated methods.
+# these names; they change only through MailProvider's dedicated methods, or not at
+# all. Gmail's reserved list isn't exhaustive, so a Gmail provider should also turn
+# its 400 "Invalid label name" into ValueError.
 SYSTEM_LABELS = frozenset(
     {
         'INBOX',
@@ -134,8 +136,9 @@ class MailProvider(Protocol):
     def apply_label(self, message_id: str, label_name: str) -> None:
         """Add the user label called `label_name`, creating it first if it doesn't exist.
 
-        Raises ValueError for an empty name or a system label name such as INBOX, in
-        any case: those change through the methods above, and Gmail rejects them too.
+        Raises ValueError for a blank name or a system label name such as INBOX (in any
+        case, ignoring surrounding spaces): those change through the methods above, and
+        Gmail rejects them too.
         """
         ...
 
