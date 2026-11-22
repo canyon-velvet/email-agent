@@ -23,8 +23,9 @@ class Message:
 class Draft:
     """An unsent reply, stored on the thread of the message it answers.
 
-    `in_reply_to` is the ID of that message. Nothing in the harness can send a
-    draft: v1 never sends mail (spec #3).
+    `in_reply_to` is that message's provider ID, not its RFC 2822 `Message-ID` header
+    (which a Gmail provider must look up to set `In-Reply-To` when it creates the
+    draft). Nothing in the harness can send a draft: v1 never sends mail (spec #3).
     """
 
     id: str
@@ -62,9 +63,11 @@ class MailProvider(Protocol):
     Callers depend only on this interface, never on a concrete provider.
 
     Label changes follow Gmail, where labels are not folders: being read, archived,
-    or out of spam is the *absence* of a label. Each change maps onto one Gmail call
-    (`messages.modify`, `drafts.create`), is idempotent, and raises
-    MessageNotFoundError for an unknown message ID. Labels are reported by name.
+    or out of spam is the *absence* of a label. Label changes map onto Gmail's
+    `messages.modify` (plus `labels.create` for a new user label) and are idempotent.
+    `create_draft` maps onto `drafts.create` and is not: each call makes a new draft.
+    Every change raises MessageNotFoundError for an unknown message ID. Labels are
+    reported by name.
     """
 
     data_origin: DataOrigin
@@ -100,7 +103,11 @@ class MailProvider(Protocol):
         ...
 
     def apply_label(self, message_id: str, label_name: str) -> None:
-        """Add the user label called `label_name`, creating it first if it doesn't exist."""
+        """Add the user label called `label_name`, creating it first if it doesn't exist.
+
+        Raises ValueError for an empty name or a system label name such as INBOX, in
+        any case: those change through the methods above, and Gmail rejects them too.
+        """
         ...
 
     def create_draft(self, message_id: str, body: str) -> Draft:
@@ -108,12 +115,13 @@ class MailProvider(Protocol):
         ...
 
     def list_drafts(self) -> list[Draft]:
-        """Return every draft created so far, oldest first."""
+        """Return the drafts created through this provider, in creation order."""
         ...
 
     def snapshot(self) -> dict[str, frozenset[str]]:
         """Return every message's label names, by message ID, for diffs and evals.
 
-        It is a copy: later changes to the mailbox leave it unchanged.
+        Covers every message, including spam and trash, but not drafts. It is a copy:
+        later changes to the mailbox leave it unchanged.
         """
         ...

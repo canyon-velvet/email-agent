@@ -1,6 +1,7 @@
 """Fixture-provider behaviour outside the shared mail-provider contract."""
 
 import json
+import shutil
 
 from email_agent.mail import FixtureProvider
 
@@ -40,16 +41,18 @@ def mailbox_files(mailbox_dir):
     return {path.name: path.read_bytes() for path in mailbox_dir.iterdir() if path.is_file()}
 
 
-def test_changes_stay_in_memory_and_a_fresh_load_starts_over(contract_mailbox):
-    files_before = mailbox_files(contract_mailbox)
-    provider = FixtureProvider(contract_mailbox)
+def test_changes_stay_in_memory_and_a_fresh_load_starts_over(contract_mailbox, tmp_path):
+    # A copy, so a provider that does write to disk can't damage the shared fixture.
+    mailbox = shutil.copytree(contract_mailbox, tmp_path / 'mailbox')
+    files_before = mailbox_files(mailbox)
+    provider = FixtureProvider(mailbox)
     original = provider.snapshot()
 
     provider.star(LUNCH)
     provider.archive(LUNCH)
     provider.create_draft(LUNCH, 'Thursday works for me.')
 
-    assert mailbox_files(contract_mailbox) == files_before
-    fresh = FixtureProvider(contract_mailbox)  # the same fixture, loaded again
+    assert mailbox_files(mailbox) == files_before
+    fresh = FixtureProvider(mailbox)  # the same fixture, loaded again
     assert fresh.snapshot() == original
     assert fresh.list_drafts() == []

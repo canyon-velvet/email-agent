@@ -219,9 +219,37 @@ def test_create_draft_stores_a_reply_on_the_message_thread(provider):
     assert first.body == 'Thursday works for me.'
     assert first.id != second.id
     assert provider.list_drafts() == [first, second]
+    provider.list_drafts().clear()  # changing the returned list...
+    assert provider.list_drafts() == [first, second]  # ...leaves the stored drafts alone
     assert provider.snapshot() == labels_before  # drafting changes no labels
 
 
-def test_the_provider_offers_no_way_to_send(provider):
-    # v1 never sends mail (spec #3): a draft is as far as the agent can go.
-    assert [name for name in dir(provider) if 'send' in name.lower()] == []
+@pytest.mark.parametrize('label_name', ['INBOX', 'inbox', 'TRASH', 'SPAM', 'UNREAD', 'DRAFT', ''])
+def test_apply_label_rejects_system_labels_and_empty_names(provider, label_name):
+    # Otherwise the generic label change is a back door around the dedicated ones,
+    # e.g. INBOX un-archives and rescues spam. Gmail rejects these user labels too.
+    before = provider.snapshot()
+
+    with pytest.raises(ValueError):
+        provider.apply_label(LUNCH, label_name)
+
+    assert provider.snapshot() == before
+
+
+def test_the_interface_offers_no_way_to_send():
+    # v1 never sends mail (spec #3). Callers see only MailProvider, so this is all the
+    # agent can do; any new capability has to be added here on purpose.
+    public_methods = {name for name in dir(MailProvider) if not name.startswith('_')}
+
+    assert public_methods == {
+        'list_unread',
+        'get_message',
+        'snapshot',
+        'list_drafts',
+        'star',
+        'mark_read',
+        'archive',
+        'report_spam',
+        'apply_label',
+        'create_draft',
+    }
