@@ -66,3 +66,24 @@ def test_inbox_rejects_a_missing_mailbox_with_a_short_error(tmp_path):
 
     assert result.returncode != 0
     assert 'Traceback' not in result.stderr
+
+
+def test_show_prints_headers_and_the_full_body(contract_mailbox):
+    result = run_cli('show', '19a8f3c2b1d04e01', '--mailbox', str(contract_mailbox))
+
+    assert result.returncode == 0, result.stderr
+    assert 'From: Alice Chen <alice@example.com>' in result.stdout
+    assert 'To: Me <me@example.com>' in result.stdout
+    assert 'Date: Thu, 19 Nov 2026 09:15:00 +0000' in result.stdout
+    assert 'Subject: Re: Lunch on Thursday?' in result.stdout
+    assert 'ramen place on 5th Street' in result.stdout  # beyond the snippet
+
+
+def test_show_rejects_an_unknown_id_with_a_short_error(contract_mailbox):
+    result = run_cli('show', '0000000000000000', '--mailbox', str(contract_mailbox))
+
+    assert result.returncode != 0
+    output = result.stdout + result.stderr
+    assert '0000000000000000' in output
+    assert 'not found' in output.lower()
+    assert 'Traceback' not in output

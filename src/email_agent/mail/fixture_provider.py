@@ -2,8 +2,10 @@ import json
 from email import policy
 from email.parser import BytesHeaderParser
 from pathlib import Path
+from typing import Any
 
-from email_agent.mail.mail_provider import DataOrigin, MessageSummary
+from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary
+from email_agent.mail.parser import parse_message
 
 
 class FixtureProvider:
@@ -21,7 +23,7 @@ class FixtureProvider:
     def list_unread(self) -> list[MessageSummary]:
         """Return unread inbox messages, newest first (see `MailProvider.list_unread`)."""
         unread = []
-        for message in json.loads((self.path / 'messages.json').read_text(encoding='utf-8')):
+        for message in self._load_message_json():
             if {'INBOX', 'UNREAD'} <= set(message.get('labelIds', [])):
                 unread.append(message)
 
@@ -40,3 +42,30 @@ class FixtureProvider:
             messages.append(message_summary)
 
         return messages
+
+    def get_message(self, message_id: str) -> Message:
+        """Return the full message with this ID (see `MailProvider.get_message`)."""
+        msg = None
+        for message in self._load_message_json():
+            if message.get('id', '') == message_id:
+                msg = message
+                break
+
+        if msg is None:
+            raise MessageNotFoundError(message_id)
+
+        raw_bytes = (self.path / f'{message_id}.eml').read_bytes()
+        parsed_msg = parse_message(raw_bytes)
+        return Message(
+            id=msg['id'],
+            thread_id=msg['threadId'],
+            sender=parsed_msg.sender,
+            to=parsed_msg.to,
+            subject=parsed_msg.subject,
+            body=parsed_msg.body,
+            date=parsed_msg.date,
+        )
+
+    def _load_message_json(self) -> list[dict[str, Any]]:
+        """Read the mailbox's Gmail message metadata from `messages.json`."""
+        return json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))

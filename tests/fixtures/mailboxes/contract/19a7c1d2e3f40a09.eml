@@ -1,0 +1,22 @@
+From: Shop Example <orders@shop.example.com>
+To: Me <me@example.com>
+Subject: Your order has shipped
+Date: Sat, 14 Nov 2026 08:00:00 +0000
+Message-ID: <order-5521@shop.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="order-5521-boundary"
+
+--order-5521-boundary
+Content-Type: text/plain; charset="utf-8"
+
+Your order 5521 has shipped.
+
+Track it at https://shop.example.com/track/5521
+--order-5521-boundary
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Your order <b>5521</b> has shipped.</p>
+<p><a href="https://shop.example.com/track/5521">Track your package</a></p>
+</body></html>
+--order-5521-boundary--
