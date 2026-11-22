@@ -4,6 +4,7 @@ Shared by every mail provider: the fixture files and Gmail's raw format are the
 same bytes, so both go through this one parser.
 """
 
+import re
 from dataclasses import dataclass
 from email import policy
 from email.headerregistry import BaseHeader, HeaderRegistry
@@ -12,6 +13,7 @@ from email.parser import BytesParser
 from html.parser import HTMLParser
 
 _PLAIN_HEADERS = HeaderRegistry(use_default_map=False)  # every header as unstructured text
+_SURROGATE = re.compile(r'[\ud800-\udfff]')
 
 
 class _LenientHeaderRegistry(HeaderRegistry):
@@ -20,7 +22,8 @@ class _LenientHeaderRegistry(HeaderRegistry):
     Python's header parsers crash on some malformed values, common in spam, wherever a
     header is read: even mid-parse, which reads Content-Type. A header that fails is
     rebuilt from less: a Content-* header from its main value alone, so MIME handling
-    still sees e.g. `text/plain`; any other header as plain text.
+    still sees e.g. `text/plain`; any other header as plain text. If even that fails
+    (an encoded word that decodes to a lone surrogate), the header comes back empty.
     """
 
     def __call__(self, name: str, value: str) -> BaseHeader:
@@ -33,7 +36,10 @@ class _LenientHeaderRegistry(HeaderRegistry):
                 return super().__call__(name, value.split(';', 1)[0])  # drop the parameters
             except Exception:
                 return super().__call__(name, '')
-        return _PLAIN_HEADERS(name, value)
+        try:
+            return _PLAIN_HEADERS(name, value)
+        except Exception:  # e.g. =?utf-7?q?+2AA-?= decodes to an unencodable '\ud800'
+            return _PLAIN_HEADERS(name, '')
 
 
 # Parse every message with this, so reading a header can never raise.
@@ -100,9 +106,11 @@ def _decode_text(part: MIMEPart) -> str:
         payload = b''
     charset = part.get_content_charset() or 'utf-8'
     try:
-        return payload.decode(charset, 'replace')
+        text = payload.decode(charset, 'replace')
     except (LookupError, ValueError):
-        return payload.decode('utf-8', 'replace')
+        text = payload.decode('utf-8', 'replace')
+    # Codecs like utf-7 can yield lone surrogates, which can't be printed or encoded.
+    return _SURROGATE.sub('�', text)
 
 
 BLOCK_TAGS = {'p', 'br', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr'}

@@ -34,13 +34,29 @@ def test_a_sender_python_cannot_parse_falls_back_to_plain_text(raw_from, expecte
         'Content-Type: text/plain; charset*',  # IndexError while parsing the message
         'Content-Disposition: inline; filename*',  # IndexError while picking the body
         'Content-Type: text/plain; x=' + '(' * 5000,  # RecursionError
+        'Content-Disposition: inline' + '(' * 5000,  # fails even without its parameters
     ],
-    ids=['content-type', 'content-disposition', 'deep-comment'],
+    ids=['content-type', 'content-disposition', 'deep-comment', 'deep-comment-no-params'],
 )
 def test_a_malformed_mime_header_still_gives_the_body(mime_header):
     raw = f'Subject: Hi\n{mime_header}\n\nHello.\n'.encode()
 
     assert parse_message(raw).body == 'Hello.'
+
+
+def test_a_header_that_decodes_to_unprintable_text_comes_back_empty():
+    raw = b'Subject: =?utf-7?q?+2AA-?=\n\nHello.\n'  # decodes to a lone surrogate, '\ud800'
+
+    parsed = parse_message(raw)
+
+    assert parsed.subject == ''
+    assert parsed.body == 'Hello.'
+
+
+def test_a_body_that_decodes_to_lone_surrogates_gets_replacement_characters():
+    raw = b'Content-Type: text/plain; charset=utf-7\n\n+2AA- hi\n'
+
+    assert parse_message(raw).body == '� hi'
 
 
 def test_an_encoded_line_break_cannot_start_a_forged_header_line():
