@@ -3,7 +3,7 @@ from email.parser import BytesHeaderParser
 from pathlib import Path
 from typing import Any
 
-from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary
+from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary, Draft
 from email_agent.mail.parser import LENIENT_POLICY, header_text, parse_message
 
 
@@ -18,12 +18,20 @@ class FixtureProvider:
 
     def __init__(self, mailbox_dir: Path) -> None:
         self.path = Path(mailbox_dir)
+        self._metadata = {}
+        self._labels = {}
+        messages = json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))
+        for msg in messages:
+            self._metadata[msg['id']] = msg
+            self._labels[msg['id']] = set(msg.get('labelIds', []))
+        self._drafts = []
+
 
     def list_unread(self) -> list[MessageSummary]:
         """Return unread inbox messages, newest first (see `MailProvider.list_unread`)."""
         unread = []
-        for message in self._load_message_json():
-            if {'INBOX', 'UNREAD'} <= set(message.get('labelIds', [])):
+        for message in self._metadata.values():
+            if {'INBOX', 'UNREAD'} <= self._labels[message['id']]:
                 unread.append(message)
 
         unread.sort(key=lambda x: int(x['internalDate']), reverse=True)
@@ -44,11 +52,7 @@ class FixtureProvider:
 
     def get_message(self, message_id: str) -> Message:
         """Return the full message with this ID (see `MailProvider.get_message`)."""
-        msg = None
-        for message in self._load_message_json():
-            if message.get('id', '') == message_id:
-                msg = message
-                break
+        msg = self._metadata.get(message_id)
 
         if msg is None:
             raise MessageNotFoundError(message_id)
@@ -65,6 +69,45 @@ class FixtureProvider:
             date=parsed_msg.date,
         )
 
-    def _load_message_json(self) -> list[dict[str, Any]]:
-        """Read the mailbox's Gmail message metadata from `messages.json`."""
-        return json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))
+    def snapshot(self) -> dict[str, frozenset[str]]:
+        return {message_id: frozenset(labels) for message_id, labels in self._labels.items()}
+
+    def list_drafts(self) -> list[Draft]:
+        return list(self._drafts)
+
+    def _modify(self, message_id, add=frozenset(), remove=frozenset()):
+        if message_id not in self._labels:
+            raise MessageNotFoundError(message_id)
+
+        self._labels[message_id] = (self._labels[message_id] | add) - remove
+
+    def star(self, message_id: str):
+        self._modify(message_id, add={'STARRED'})
+
+    def mark_read(self, message_id: str):
+        self._modify(message_id, remove={'UNREAD'})
+
+    def archive(self, message_id: str):
+        self._modify(message_id, remove={'INBOX'})
+
+    def report_spam(self, message_id: str):
+        self._modify(message_id, add={'SPAM'}, remove={'INBOX'})
+
+    def apply_label(self, message_id: str, label_name: str):
+        self._modify(message_id, add={label_name})
+
+    def create_draft(self, message_id: str, body: str) -> Draft:
+        if message_id not in self._labels:
+            raise MessageNotFoundError(message_id)
+
+        message = self._metadata[message_id]
+
+        draft = Draft(
+            id=f'draft-{len(self._drafts) + 1}',
+            thread_id=message['threadId'],
+            in_reply_to=message_id,
+            body=body
+        )
+        self._drafts.append(draft)
+        return draft
+

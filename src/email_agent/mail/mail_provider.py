@@ -18,6 +18,13 @@ class Message:
     subject: str
     body: str
 
+@dataclass(frozen=True)
+class Draft:
+    id: str
+    thread_id: str
+    in_reply_to: str
+    body: str
+
 
 @dataclass(frozen=True)
 class MessageSummary:
@@ -63,3 +70,19 @@ class MailProvider(Protocol):
         Raises MessageNotFoundError if the mailbox has no such message.
         """
         ...
+
+    def star(self, message_id: str) -> None: ...
+
+    def mark_read(self, message_id: str) -> None: ...
+
+    def archive(self, message_id: str) -> None: ...
+
+    def report_spam(self, message_id: str) -> None: ...
+
+    def apply_label(self, message_id: str, label_name: str) -> None: ...
+
+    def create_draft(self, message_id: str, body: str) -> Draft: ...
+
+    def list_drafts(self) -> list[Draft]: ...
+
+    def snapshot(self) -> dict[str, frozenset[str]]: ...

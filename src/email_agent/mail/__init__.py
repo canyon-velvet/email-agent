@@ -5,6 +5,7 @@ from email_agent.mail.mail_provider import (
     Message,
     MessageNotFoundError,
     MessageSummary,
+    Draft
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     'DataOrigin',
     'MessageNotFoundError',
     'Message',
+    'Draft'
 ]
