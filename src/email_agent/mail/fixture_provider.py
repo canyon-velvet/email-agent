@@ -1,11 +1,10 @@
 import json
-from email import policy
 from email.parser import BytesHeaderParser
 from pathlib import Path
 from typing import Any
 
 from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary
-from email_agent.mail.parser import parse_message
+from email_agent.mail.parser import LENIENT_POLICY, header_text, parse_message
 
 
 class FixtureProvider:
@@ -31,12 +30,12 @@ class FixtureProvider:
         messages = []
         for message in unread:
             with open(self.path / f'{message["id"]}.eml', 'rb') as f:
-                headers = BytesHeaderParser(policy=policy.default).parse(f)
+                headers = BytesHeaderParser(policy=LENIENT_POLICY).parse(f)
             message_summary = MessageSummary(
                 id=message['id'],
                 thread_id=message['threadId'],
-                sender=str(headers.get('From', '')),
-                subject=str(headers.get('Subject', '')),
+                sender=header_text(headers, 'From'),
+                subject=header_text(headers, 'Subject'),
                 snippet=message['snippet'],
             )
             messages.append(message_summary)
