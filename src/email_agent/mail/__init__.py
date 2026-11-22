@@ -1,6 +1,7 @@
 from email_agent.mail.fixture_provider import FixtureProvider
 from email_agent.mail.mail_provider import (
     DataOrigin,
+    Draft,
     MailProvider,
     Message,
     MessageNotFoundError,
@@ -14,4 +15,5 @@ __all__ = [
     'DataOrigin',
     'MessageNotFoundError',
     'Message',
+    'Draft',
 ]
