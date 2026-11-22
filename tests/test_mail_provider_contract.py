@@ -102,6 +102,13 @@ def test_get_message_decodes_encoded_headers_and_non_utf8_bodies(provider):
     assert 'café à 10h, près de la gare' in reunion.body
 
 
+def test_get_message_does_not_mark_the_message_as_read(provider):
+    # As with Gmail's messages.get, reading is not an action; marking as read is (#7).
+    provider.get_message(LUNCH)
+
+    assert LUNCH in [summary.id for summary in provider.list_unread()]
+
+
 def test_get_message_gives_an_empty_subject_when_the_header_is_missing(provider):
     assert provider.get_message(NO_SUBJECT).subject == ''
 

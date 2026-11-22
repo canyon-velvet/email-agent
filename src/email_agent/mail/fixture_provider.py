@@ -2,6 +2,7 @@ import json
 from email import policy
 from email.parser import BytesHeaderParser
 from pathlib import Path
+from typing import Any
 
 from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary
 from email_agent.mail.parser import parse_message
@@ -65,6 +66,6 @@ class FixtureProvider:
             date=parsed_msg.date,
         )
 
-    def _load_message_json(self) -> list[dict]:
+    def _load_message_json(self) -> list[dict[str, Any]]:
         """Read the mailbox's Gmail message metadata from `messages.json`."""
         return json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))
