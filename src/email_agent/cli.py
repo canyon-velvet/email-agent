@@ -6,8 +6,7 @@ from typing import Annotated
 
 import typer
 
-from email_agent.mail import FixtureProvider, MailProvider
-from email_agent.mail import MessageNotFoundError
+from email_agent.mail import FixtureProvider, MailProvider, MessageNotFoundError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -61,18 +60,26 @@ def inbox(
 @app.command()
 def show(
     message_id: Annotated[str, typer.Argument(help='ID of the message to show.')],
-    mail_box: Annotated[
+    mailbox: Annotated[
         Path,
         typer.Option(
             '--mailbox', exists=True, file_okay=False, help='Open the mailbox at this path.'
         ),
     ],
 ) -> None:
-    provider = _open_mailbox(mail_box)
+    """Show one message: its headers, then the body as readable text."""
+    provider = _open_mailbox(mailbox)
     try:
         message = provider.get_message(message_id)
     except MessageNotFoundError:
         typer.echo(f'Message {message_id} not found.', err=True)
         raise typer.Exit(code=1) from None
     else:
-        typer.echo(f'{message.sender}  {message.to}  {message.date} {message.subject} {message.body}')
+        typer.echo(
+            f'From: {message.sender}\n'
+            f'To: {message.to}\n'
+            f'Date: {message.date}\n'
+            f'Subject: {message.subject}\n'
+            '\n'
+            f'{message.body}'
+        )

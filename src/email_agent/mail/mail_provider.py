@@ -1,8 +1,15 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+
 @dataclass(frozen=True)
 class Message:
+    """One full message, as reading it shows: headers plus the body as readable text.
+
+    All fields are plain text. A missing header is an empty string; `date` is the raw
+    Date header. HTML-only bodies are converted to text, so `body` never has markup.
+    """
+
     id: str
     thread_id: str
     sender: str
@@ -10,6 +17,7 @@ class Message:
     date: str
     subject: str
     body: str
+
 
 @dataclass(frozen=True)
 class MessageSummary:
@@ -25,8 +33,10 @@ class MessageSummary:
     subject: str
     snippet: str
 
+
 class MessageNotFoundError(LookupError):
-    """"""
+    """Raised when a mailbox has no message with the requested ID."""
+
 
 # Where data came from. The model router (#10) uses it to decide which models may see it.
 DataOrigin = Literal['email_content', 'synthetic', 'public']
@@ -47,4 +57,9 @@ class MailProvider(Protocol):
         """
         ...
 
-    def get_message(self, message_id: str) -> Message: ...
+    def get_message(self, message_id: str) -> Message:
+        """Return the full message with this ID.
+
+        Raises MessageNotFoundError if the mailbox has no such message.
+        """
+        ...

@@ -3,7 +3,7 @@ from email import policy
 from email.parser import BytesHeaderParser
 from pathlib import Path
 
-from email_agent.mail.mail_provider import DataOrigin, MessageSummary, Message, MessageNotFoundError
+from email_agent.mail.mail_provider import DataOrigin, Message, MessageNotFoundError, MessageSummary
 from email_agent.mail.parser import parse_message
 
 
@@ -43,6 +43,7 @@ class FixtureProvider:
         return messages
 
     def get_message(self, message_id: str) -> Message:
+        """Return the full message with this ID (see `MailProvider.get_message`)."""
         msg = None
         for message in self._load_message_json():
             if message.get('id', '') == message_id:
@@ -55,17 +56,15 @@ class FixtureProvider:
         raw_bytes = (self.path / f'{message_id}.eml').read_bytes()
         parsed_msg = parse_message(raw_bytes)
         return Message(
-            id = msg['id'],
-            thread_id = msg['threadId'],
-            sender = parsed_msg.sender,
-            to = parsed_msg.to,
-            subject = parsed_msg.subject,
-            body = parsed_msg.body,
-            date = parsed_msg.date
+            id=msg['id'],
+            thread_id=msg['threadId'],
+            sender=parsed_msg.sender,
+            to=parsed_msg.to,
+            subject=parsed_msg.subject,
+            body=parsed_msg.body,
+            date=parsed_msg.date,
         )
 
-    def _load_message_json(self):
+    def _load_message_json(self) -> list[dict]:
+        """Read the mailbox's Gmail message metadata from `messages.json`."""
         return json.loads((self.path / 'messages.json').read_text(encoding='utf-8'))
-
-
-
