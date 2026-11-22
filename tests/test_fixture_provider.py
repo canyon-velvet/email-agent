@@ -17,12 +17,18 @@ def test_one_malformed_unread_message_does_not_break_the_listing(tmp_path):
         {'id': 'bbb', 'threadId': 'bbb', 'internalDate': '1', **unread},
     ]
     (tmp_path / 'messages.json').write_text(json.dumps(messages), encoding='utf-8')
-    (tmp_path / 'aaa.eml').write_bytes(b'From: "\nSubject: Spam\n\nHello.\n')  # raises in 3.12
+    (tmp_path / 'aaa.eml').write_bytes(  # each of these headers made the listing raise
+        b'From: =?utf-8?b?QQo=?= <a@example.com>\n'
+        b'Subject: Spam\n'
+        b'Content-Type: text/plain; charset*\n'
+        b'\n'
+        b'Hello.\n'
+    )
     (tmp_path / 'bbb.eml').write_bytes(b'From: Bo <bo@example.com>\nSubject: Hi\n\nHello.\n')
 
     summaries = FixtureProvider(tmp_path).list_unread()
 
     assert [(s.id, s.sender, s.subject) for s in summaries] == [
-        ('aaa', '"', 'Spam'),
+        ('aaa', 'A <a@example.com>', 'Spam'),
         ('bbb', 'Bo <bo@example.com>', 'Hi'),
     ]
