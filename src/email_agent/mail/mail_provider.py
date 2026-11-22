@@ -85,8 +85,9 @@ class MailProvider(Protocol):
 
     Label changes follow Gmail, where labels are not folders: being read, archived,
     or out of spam is the *absence* of a label. Label changes map onto Gmail's
-    `messages.modify` (plus `labels.create` for a new user label) and are idempotent.
-    `create_draft` maps onto `drafts.create` and is not: each call makes a new draft.
+    `messages.modify` (plus `labels.create` for a new user label), or `messages.trash`
+    for `trash`, and are idempotent. `create_draft` maps onto `drafts.create` and is
+    not: each call makes a new draft.
     Every change raises MessageNotFoundError for an unknown message ID. Labels are
     reported by name.
     """
@@ -123,6 +124,13 @@ class MailProvider(Protocol):
         """Add SPAM and remove INBOX."""
         ...
 
+    def trash(self, message_id: str) -> None:
+        """Move the message to the trash: add TRASH, and drop it from the inbox listing.
+
+        Its own method, not an `apply_label`, so a permission policy can gate it.
+        """
+        ...
+
     def apply_label(self, message_id: str, label_name: str) -> None:
         """Add the user label called `label_name`, creating it first if it doesn't exist.
 
@@ -146,5 +154,3 @@ class MailProvider(Protocol):
         later changes to the mailbox leave it unchanged.
         """
         ...
-
-    def trash(self, message_id: str) -> None: ...

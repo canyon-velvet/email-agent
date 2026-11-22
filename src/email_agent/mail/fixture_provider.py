@@ -112,6 +112,7 @@ class FixtureProvider:
         self._modify(message_id, add={'SPAM'}, remove={'INBOX'})
 
     def trash(self, message_id: str) -> None:
+        """Add TRASH and remove INBOX (see `MailProvider.trash`)."""
         self._modify(message_id, add={'TRASH'}, remove={'INBOX'})
 
     def apply_label(self, message_id: str, label_name: str) -> None:
