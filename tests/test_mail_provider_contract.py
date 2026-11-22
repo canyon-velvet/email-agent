@@ -1,4 +1,4 @@
-"""Mail-provider contract (Seam 2): "list unread" and "get message".
+"""Mail-provider contract (Seam 2): reading messages, changing labels, and drafts.
 
 Every MailProvider must pass this suite against the contract mailbox. The fixture
 provider reads it from disk. Gmail assigns its own message IDs, so when the Gmail
@@ -26,6 +26,31 @@ REUNION = '19a7a0b1c2d3e40b'  # encoded From/Subject, ISO-8859-1 quoted-printabl
 
 # Appears in the lunch message's body, past the ~200 characters its snippet covers.
 BODY_ONLY_TEXT = 'ramen place on 5th Street'
+
+LUNCH_THREAD = '19a7e0d1c2b3a400'  # a reply, so its thread ID differs from its own ID
+LUNCH_LABELS = frozenset({'INBOX', 'UNREAD', 'IMPORTANT', 'CATEGORY_PERSONAL'})
+NO_LABELS = '19a82a4b6c8d0e08'  # archived and read: Gmail omits labelIds entirely
+
+# Each mailbox change, as a test calls it. Each maps onto one Gmail API call:
+# messages.modify for the label changes, drafts.create for the draft.
+CHANGES = {
+    'star': lambda provider, message_id: provider.star(message_id),
+    'mark_read': lambda provider, message_id: provider.mark_read(message_id),
+    'archive': lambda provider, message_id: provider.archive(message_id),
+    'apply_label': lambda provider, message_id: provider.apply_label(message_id, 'Receipts'),
+    'report_spam': lambda provider, message_id: provider.report_spam(message_id),
+    'create_draft': lambda provider, message_id: provider.create_draft(message_id, 'Thanks!'),
+}
+
+# The labels each label change adds and removes, with Gmail's semantics: a label is
+# not a folder, so archiving removes INBOX and reporting spam swaps INBOX for SPAM.
+LABEL_CHANGES = {
+    'star': ({'STARRED'}, set()),
+    'mark_read': (set(), {'UNREAD'}),
+    'archive': (set(), {'INBOX'}),
+    'apply_label': ({'Receipts'}, set()),
+    'report_spam': ({'SPAM'}, {'INBOX'}),
+}
 
 
 @pytest.fixture(params=['fixture_provider'])
@@ -116,3 +141,87 @@ def test_get_message_gives_an_empty_subject_when_the_header_is_missing(provider)
 def test_get_message_raises_for_an_unknown_id(provider):
     with pytest.raises(MessageNotFoundError):
         provider.get_message('0000000000000000')
+
+
+def test_snapshot_reports_the_labels_of_every_message(provider):
+    snapshot = provider.snapshot()
+
+    assert len(snapshot) == 11
+    assert snapshot[LUNCH] == LUNCH_LABELS
+    assert snapshot[NO_LABELS] == frozenset()
+
+
+def test_a_snapshot_is_a_copy_that_later_changes_leave_alone(provider):
+    snapshot = provider.snapshot()
+
+    provider.star(LUNCH)
+
+    assert snapshot[LUNCH] == LUNCH_LABELS
+
+
+@pytest.mark.parametrize('change', LABEL_CHANGES)
+def test_each_label_change_matches_gmail(provider, change):
+    added, removed = LABEL_CHANGES[change]
+    before = provider.snapshot()
+
+    CHANGES[change](provider, LUNCH)
+
+    after = provider.snapshot()
+    assert after[LUNCH] == (LUNCH_LABELS | added) - removed
+    others_before = {id_: labels for id_, labels in before.items() if id_ != LUNCH}
+    assert {id_: labels for id_, labels in after.items() if id_ != LUNCH} == others_before
+
+
+@pytest.mark.parametrize('change', LABEL_CHANGES)
+def test_label_changes_are_idempotent(provider, change):
+    # An agent may repeat an action, e.g. after a retry; doing it twice must be safe.
+    CHANGES[change](provider, LUNCH)
+    once = provider.snapshot()
+
+    CHANGES[change](provider, LUNCH)
+
+    assert provider.snapshot() == once
+
+
+def test_label_changes_show_up_in_list_unread(provider):
+    provider.mark_read(LUNCH)
+    provider.archive(BUILD)
+    provider.report_spam(INVOICE)
+
+    assert [summary.id for summary in provider.list_unread()] == [NO_SUBJECT]
+
+
+def test_a_new_user_label_is_created_once_then_reused(provider):
+    # In Gmail a user label must exist before it's applied, and creating a label that
+    # already exists is an error: the first call creates it, the second reuses it.
+    provider.apply_label(LUNCH, 'Travel')
+    provider.apply_label(BUILD, 'Travel')
+
+    snapshot = provider.snapshot()
+    assert 'Travel' in snapshot[LUNCH]
+    assert 'Travel' in snapshot[BUILD]
+
+
+@pytest.mark.parametrize('change', CHANGES)
+def test_changing_an_unknown_message_raises(provider, change):
+    with pytest.raises(MessageNotFoundError):
+        CHANGES[change](provider, '0000000000000000')
+
+
+def test_create_draft_stores_a_reply_on_the_message_thread(provider):
+    labels_before = provider.snapshot()
+
+    first = provider.create_draft(LUNCH, 'Thursday works for me.')
+    second = provider.create_draft(LUNCH, 'Actually, could we do Friday?')
+
+    assert first.thread_id == LUNCH_THREAD  # the thread, not the message's own ID
+    assert first.in_reply_to == LUNCH
+    assert first.body == 'Thursday works for me.'
+    assert first.id != second.id
+    assert provider.list_drafts() == [first, second]
+    assert provider.snapshot() == labels_before  # drafting changes no labels
+
+
+def test_the_provider_offers_no_way_to_send(provider):
+    # v1 never sends mail (spec #3): a draft is as far as the agent can go.
+    assert [name for name in dir(provider) if 'send' in name.lower()] == []

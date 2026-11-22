@@ -4,6 +4,8 @@ import json
 
 from email_agent.mail import FixtureProvider
 
+LUNCH = '19a8f3c2b1d04e01'  # an unread inbox message in the contract mailbox
+
 
 def test_fixture_data_is_tagged_synthetic(contract_mailbox):
     # The model router (#10) uses this tag: synthetic data may go to a cloud model.
@@ -32,3 +34,22 @@ def test_one_malformed_unread_message_does_not_break_the_listing(tmp_path):
         ('aaa', 'A <a@example.com>', ''),
         ('bbb', 'Bo <bo@example.com>', 'Hi'),
     ]
+
+
+def mailbox_files(mailbox_dir):
+    return {path.name: path.read_bytes() for path in mailbox_dir.iterdir() if path.is_file()}
+
+
+def test_changes_stay_in_memory_and_a_fresh_load_starts_over(contract_mailbox):
+    files_before = mailbox_files(contract_mailbox)
+    provider = FixtureProvider(contract_mailbox)
+    original = provider.snapshot()
+
+    provider.star(LUNCH)
+    provider.archive(LUNCH)
+    provider.create_draft(LUNCH, 'Thursday works for me.')
+
+    assert mailbox_files(contract_mailbox) == files_before
+    fresh = FixtureProvider(contract_mailbox)  # the same fixture, loaded again
+    assert fresh.snapshot() == original
+    assert fresh.list_drafts() == []
