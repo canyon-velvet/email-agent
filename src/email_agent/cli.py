@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from email_agent.mail import FixtureProvider, MailProvider
+from email_agent.mail import MessageNotFoundError
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -55,3 +56,23 @@ def inbox(
         typer.echo('No unread messages.')
     for summary in summaries:
         typer.echo(f'{summary.id}  {summary.sender}  {summary.subject}  {summary.snippet}')
+
+
+@app.command()
+def show(
+    message_id: Annotated[str, typer.Argument(help='ID of the message to show.')],
+    mail_box: Annotated[
+        Path,
+        typer.Option(
+            '--mailbox', exists=True, file_okay=False, help='Open the mailbox at this path.'
+        ),
+    ],
+) -> None:
+    provider = _open_mailbox(mail_box)
+    try:
+        message = provider.get_message(message_id)
+    except MessageNotFoundError:
+        typer.echo(f'Message {message_id} not found.', err=True)
+        raise typer.Exit(code=1) from None
+    else:
+        typer.echo(f'{message.sender}  {message.to}  {message.date} {message.subject} {message.body}')

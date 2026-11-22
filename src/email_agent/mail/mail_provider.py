@@ -1,6 +1,15 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+@dataclass(frozen=True)
+class Message:
+    id: str
+    thread_id: str
+    sender: str
+    to: str
+    date: str
+    subject: str
+    body: str
 
 @dataclass(frozen=True)
 class MessageSummary:
@@ -16,6 +25,8 @@ class MessageSummary:
     subject: str
     snippet: str
 
+class MessageNotFoundError(LookupError):
+    """"""
 
 # Where data came from. The model router (#10) uses it to decide which models may see it.
 DataOrigin = Literal['email_content', 'synthetic', 'public']
@@ -35,3 +46,5 @@ class MailProvider(Protocol):
         Summaries carry snippets only, never message bodies.
         """
         ...
+
+    def get_message(self, message_id: str) -> Message: ...
