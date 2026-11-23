@@ -1,9 +1,9 @@
 """Command-line entry point for email-agent."""
 
+import json
 from importlib import metadata
 from pathlib import Path
 from typing import Annotated
-import json
 
 import typer
 
@@ -86,16 +86,16 @@ def show(
             f'{message.body}'
         )
 
+
 @app.command()
 def trace(
     run_id: Annotated[str, typer.Argument(help='ID of the run to show.')],
     trace_dir: Annotated[
         Path,
-        typer.Option(
-            '--trace-dir', help='Open the trace at this path.'
-        ),
+        typer.Option('--trace-dir', help='Read runs from this directory.'),
     ] = Path('traces'),
 ) -> None:
+    """Print a run's trace, one event per line: seq, time, type, then the payload."""
     try:
         events = read_trace(trace_dir, run_id)
     except RunNotFoundError:
@@ -103,5 +103,5 @@ def trace(
         raise typer.Exit(code=1) from None
     else:
         for event in events:
-            typer.echo(f'{event.seq}  {event.timestamp}  {event.type}  {json.dumps(event.payload, ensure_ascii=False)}')
-
+            payload = json.dumps(event.payload, ensure_ascii=False)
+            typer.echo(f'{event.seq}  {event.timestamp}  {event.type}  {payload}')
