@@ -77,7 +77,7 @@ class Trace:
             f.write(line + '\n')
         self._next_seq += 1
 
-        return event
+        return TraceEvent(**json.loads(line))
 
 
 def start_run(trace_dir: Path) -> Trace:

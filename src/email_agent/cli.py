@@ -99,7 +99,7 @@ def trace(
     try:
         events = read_trace(trace_dir, run_id)
     except RunNotFoundError:
-        typer.echo(f'Run {run_id} not found.', err=True)
+        typer.echo(f'Run {run_id} not found in {trace_dir}.', err=True)
         raise typer.Exit(code=1) from None
     else:
         for event in events:
