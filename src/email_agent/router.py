@@ -1,4 +1,4 @@
-"""The model router: decides which model may see a request, from where its data came.
+"""The model router: decides which model may see a request, by where its data came from.
 
 Every request is tagged with the most sensitive origin among its inputs, and a policy
 table says where each tag may go. Routing is code, never a model decision, so an
@@ -63,7 +63,8 @@ class ModelRouter:
         origins means a content-free request, tagged 'public'.
 
         The request goes to the first destination its tag allows that has a model.
-        Raises RoutingError if there is none, including for a tag the policy leaves out.
+        Raises RoutingError if there is none, including for a tag the policy leaves out,
+        and ValueError for an origin it doesn't know, rather than guess its sensitivity.
         """
         # cast: given a default, pyright widens max()'s result to str.
         tag = cast(DataOrigin, max(origins, key=SENSITIVITY.index, default='public'))

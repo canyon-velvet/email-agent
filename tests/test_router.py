@@ -43,6 +43,13 @@ def test_a_request_is_tagged_with_its_most_sensitive_input(origins, tag):
     assert decision.tag == tag
 
 
+def test_an_unknown_origin_is_refused_not_treated_as_public():
+    # A misspelling (say, from a trace read back as plain strings) must never be
+    # guessed harmless: refusing it keeps real email off the cloud.
+    with pytest.raises(ValueError):
+        both_models().route(['synthetic', 'emial_content'])
+
+
 @pytest.mark.parametrize(
     ('origin', 'destination'),
     [('email_content', 'local'), ('synthetic', 'cloud'), ('public', 'cloud')],
@@ -81,9 +88,10 @@ def test_the_router_follows_whatever_policy_table_it_is_given():
 
     # The table's order is the order of preference.
     assert router.route(['synthetic'])[0] is LOCAL_MODEL
-    # A tag the table leaves out may go nowhere.
-    with pytest.raises(RoutingError, match='public'):
+    # A tag the table leaves out may go nowhere, and the error says so.
+    with pytest.raises(RoutingError, match='public') as raised:
         router.route(['public'])
+    assert 'nowhere' in str(raised.value)
 
 
 def test_the_router_remembers_nothing_between_requests():
