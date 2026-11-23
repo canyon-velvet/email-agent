@@ -1,7 +1,7 @@
 """A scripted test double for the model: pre-written replies, every request recorded."""
 
-from collections.abc import Iterable
 import copy
+from collections.abc import Iterable
 
 from email_agent.model.model_client import (
     ModelReply,
@@ -32,5 +32,7 @@ class ScriptedModelClient:
         self.requests.append(copy.deepcopy(request))
         number = len(self.requests)
         if number > len(self._replies):
-            raise ScriptExhaustedError(f'no scripted reply for request {number}; only {len(self._replies)} were scripted')
+            raise ScriptExhaustedError(
+                f'no scripted reply for request {number}; only {len(self._replies)} were scripted'
+            )
         return self._replies[number - 1]
