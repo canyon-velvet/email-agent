@@ -109,7 +109,7 @@ def test_trace_prints_a_runs_events_in_order(tmp_path):
         datetime.fromisoformat(row[1])  # raises unless it's an ISO 8601 time
     assert [row[2] for row in columns] == ['tool_call', 'tool_result']
     assert json.loads(columns[1][3]) == {'text': 'café'}
-    assert 'café' in result.stdout  # readable, not escaped as é
+    assert 'café' in result.stdout  # printed as is, not as a JSON escape sequence
 
 
 def test_trace_reads_the_traces_directory_by_default(tmp_path):
@@ -136,5 +136,6 @@ def test_trace_rejects_an_unknown_run_with_a_short_error(tmp_path):
     assert result.returncode != 0
     output = result.stdout + result.stderr
     assert 'no-such-run' in output
+    assert str(tmp_path) in output  # says where it looked
     assert 'not found' in output.lower()
     assert 'Traceback' not in output

@@ -58,8 +58,9 @@ class Trace:
         The returned event is rebuilt from the stored line, so it equals what
         `read_trace` gives back, even if the caller later changes `payload`.
 
-        Raises TypeError if the payload isn't JSON-serializable; nothing is written
-        then, and the sequence number isn't used up.
+        Raises TypeError if the payload isn't JSON-serializable, or RecursionError if
+        it contains itself; nothing is written then, and the sequence number isn't
+        used up.
         """
         event = TraceEvent(
             seq=self._next_seq,
