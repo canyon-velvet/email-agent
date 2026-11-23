@@ -4,8 +4,10 @@ The agent loop, the router and the tests use only these types. Each provider's
 client (Claude, a local model, the scripted test double) translates them to and from
 its own API in its own module, so no provider SDK type appears here.
 
-All the types are frozen, and every sequence is a tuple: a request, once sent and
-recorded, stays exactly as it was.
+All the types are frozen, and every sequence is a tuple. The dict fields
+(`input_schema`, `arguments`) and `provider_data` can still be changed in place, so
+treat them as read-only and build changed copies instead (`dataclasses.replace`
+with a new dict). Because of those dicts, the types aren't hashable.
 """
 
 from dataclasses import dataclass
@@ -48,8 +50,11 @@ class AssistantMessage:
 
     `provider_data` is opaque to everything but the client that made it. It holds
     whatever that provider needs sent back verbatim on later requests, such as
-    Claude's thinking blocks. Clients should keep it JSON-serializable so the trace
-    can record it. The loop appends the message to its history as it came.
+    Claude's thinking blocks. The neutral fields describe the turn; `provider_data`
+    adds only what they can't express, and a client ignores `provider_data` it
+    didn't produce (after the router switches models, say). Clients should keep it
+    JSON-serializable so the trace can record it. The loop appends the message to
+    its history as it came.
     """
 
     text: str
@@ -110,7 +115,11 @@ class ModelRequest:
 
 @dataclass(frozen=True)
 class ModelReply:
-    """The model's answer to one request."""
+    """The model's answer to one request.
+
+    Clients make `stop_reason` agree with the message: TOOL_USE exactly when there
+    are tool calls to run. The loop runs `tool_calls` only on TOOL_USE.
+    """
 
     message: AssistantMessage
     stop_reason: StopReason

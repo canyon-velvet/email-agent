@@ -16,7 +16,9 @@ class ScriptedModelClient:
     """A model that returns pre-written replies, in order, and records each request.
 
     A spy: tests script the model's side of a conversation, then check exactly what
-    the loop sent in `requests`. Running out of replies raises ScriptExhaustedError,
+    the loop sent in `requests`. Each request is recorded as a deep copy, so later
+    changes to the caller's objects can't alter the record, and the request that
+    runs out is recorded too. Running out of replies raises ScriptExhaustedError,
     so a loop that calls the model too often fails the test loudly.
     """
 

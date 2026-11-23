@@ -76,6 +76,8 @@ def test_a_tool_round_trip_through_the_scripted_client():
     )
 
     assert (first, second) == (wants_tool, done)
+    # provider_data counts in equality, so tests can check it went back unchanged.
+    assert AssistantMessage(text='Let me read it.', tool_calls=(call,)) != wants_tool.message
     assert client.requests[1] == ModelRequest(
         system=SYSTEM,
         messages=(UserMessage('Summarize the lunch email.'), wants_tool.message, result),
@@ -93,6 +95,22 @@ def test_replies_come_back_in_order_and_every_request_is_recorded():
 
     assert got == replies
     assert client.requests == requests
+
+
+def test_a_recorded_request_stays_as_it_was_sent():
+    # The types are frozen, but a dict inside one can still change in place, as a
+    # pruner shortening an older tool call's arguments would. The record must keep
+    # what was actually sent.
+    call = ToolCall(id='call_1', name='read_email', arguments={'id': 'abc', 'reason': 'long'})
+    client = ScriptedModelClient([text_reply('ok')])
+    history = (UserMessage('hi'), AssistantMessage(text='', tool_calls=(call,)))
+
+    client.complete(ModelRequest(system=SYSTEM, messages=history))
+    call.arguments['reason'] = 'short'
+
+    recorded = client.requests[0].messages[1]
+    assert isinstance(recorded, AssistantMessage)
+    assert recorded.tool_calls[0].arguments == {'id': 'abc', 'reason': 'long'}
 
 
 def test_the_script_is_copied_so_later_changes_to_it_have_no_effect():
@@ -115,6 +133,7 @@ def test_running_out_of_replies_raises_an_error_naming_the_request(scripted):
     # A missing reply must fail the test loudly, saying which call had none.
     with pytest.raises(ScriptExhaustedError, match=f'request {scripted + 1}'):
         client.complete(ask('one too many'))
+    assert len(client.requests) == scripted + 1  # the unanswered request is recorded too
 
 
 def test_the_interface_imports_no_provider_sdk():
