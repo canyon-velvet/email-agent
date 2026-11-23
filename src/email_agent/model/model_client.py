@@ -7,7 +7,9 @@ its own API in its own module, so no provider SDK type appears here.
 All the types are frozen, and every sequence is a tuple. The dict fields
 (`input_schema`, `arguments`) and `provider_data` can still be changed in place, so
 treat them as read-only and build changed copies instead (`dataclasses.replace`
-with a new dict). Because of those dicts, the types aren't hashable.
+with a new dict). Anything holding one of those dicts (a ToolCall, a ToolSchema, or
+a message or request containing one) can't be hashed, so don't use these types as
+set members or dict keys.
 """
 
 from dataclasses import dataclass
@@ -117,8 +119,8 @@ class ModelRequest:
 class ModelReply:
     """The model's answer to one request.
 
-    Clients make `stop_reason` agree with the message: TOOL_USE exactly when there
-    are tool calls to run. The loop runs `tool_calls` only on TOOL_USE.
+    A MAX_TOKENS or REFUSAL reply may still carry incomplete tool calls; clients keep
+    them in the message, and the loop runs `tool_calls` only on TOOL_USE.
     """
 
     message: AssistantMessage

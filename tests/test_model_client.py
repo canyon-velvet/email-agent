@@ -102,15 +102,18 @@ def test_a_recorded_request_stays_as_it_was_sent():
     # pruner shortening an older tool call's arguments would. The record must keep
     # what was actually sent.
     call = ToolCall(id='call_1', name='read_email', arguments={'id': 'abc', 'reason': 'long'})
+    schema = ToolSchema(name='read_email', description='Read one email.', input_schema={})
     client = ScriptedModelClient([text_reply('ok')])
     history = (UserMessage('hi'), AssistantMessage(text='', tool_calls=(call,)))
 
-    client.complete(ModelRequest(system=SYSTEM, messages=history))
+    client.complete(ModelRequest(system=SYSTEM, messages=history, tools=(schema,)))
     call.arguments['reason'] = 'short'
+    schema.input_schema['type'] = 'object'
 
-    recorded = client.requests[0].messages[1]
-    assert isinstance(recorded, AssistantMessage)
-    assert recorded.tool_calls[0].arguments == {'id': 'abc', 'reason': 'long'}
+    recorded = client.requests[0]
+    assert isinstance(recorded.messages[1], AssistantMessage)
+    assert recorded.messages[1].tool_calls[0].arguments == {'id': 'abc', 'reason': 'long'}
+    assert recorded.tools[0].input_schema == {}
 
 
 def test_the_script_is_copied_so_later_changes_to_it_have_no_effect():
