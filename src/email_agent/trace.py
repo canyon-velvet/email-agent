@@ -53,7 +53,10 @@ class Trace:
         self._next_seq = 1
 
     def append(self, type: str, payload: dict[str, Any]) -> TraceEvent:
-        """Record an event and return it, numbered and timestamped.
+        """Record an event and return it as recorded: numbered and timestamped.
+
+        The returned event is rebuilt from the stored line, so it equals what
+        `read_trace` gives back, even if the caller later changes `payload`.
 
         Raises TypeError if the payload isn't JSON-serializable; nothing is written
         then, and the sequence number isn't used up.
