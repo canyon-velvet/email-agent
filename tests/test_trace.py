@@ -42,7 +42,7 @@ def test_events_come_back_in_order_with_seq_timestamp_type_and_payload(tmp_path)
 
 def test_any_text_in_a_payload_comes_back_exactly(tmp_path):
     # Email text can hold anything: line breaks, NUL, emoji, and U+2028, which
-    # str.splitlines() treats as a line break even inside a JSON string.
+    # str.splitlines() counts as a line break.
     text = 'café 🚀\r\nnext\x00line separator'
     trace = start_run(tmp_path)
     trace.append('tool_result', {'text': text})
@@ -51,6 +51,18 @@ def test_any_text_in_a_payload_comes_back_exactly(tmp_path):
     events = read_trace(tmp_path, trace.run_id)
 
     assert [event.payload for event in events] == [{'text': text}, {'n': 2}]
+
+
+def test_append_returns_the_event_as_recorded(tmp_path):
+    # The caller may change its payload afterwards, as context pruning will, and JSON
+    # has no tuples: the returned event must still equal what the trace holds.
+    trace = start_run(tmp_path)
+    payload = {'messages': ['hi'], 'pair': ('a', 'b')}
+
+    event = trace.append('model_request', payload)
+    payload['messages'].append('pruned later')
+
+    assert read_trace(tmp_path, trace.run_id) == [event]
 
 
 def test_appending_never_rewrites_earlier_events(tmp_path):
@@ -112,19 +124,41 @@ def test_events_written_before_a_crash_are_still_readable(tmp_path):
     assert [event.payload for event in events] == [{'n': 1}, {'n': 2}]
 
 
-def test_a_torn_last_line_from_a_crash_mid_write_is_skipped(tmp_path):
+def test_a_write_torn_by_a_crash_at_any_byte_is_skipped(tmp_path):
     trace = start_run(tmp_path)
-    first = trace.append('step', {'n': 1})
+    first = trace.append('step', {'text': 'café 🚀'})
+    path = tmp_path / f'{trace.run_id}.jsonl'
+    before = path.read_bytes()
+    trace.append('step', {'text': 'café 🚀'})
+    full = path.read_bytes()
+
+    # Cut the second write short at every byte, as a crash mid-write could. If the
+    # file held raw multi-byte characters, some cuts would split one and make the
+    # whole file undecodable.
+    for cut in range(len(before) + 1, len(full) - 1):
+        path.write_bytes(full[:cut])
+        assert read_trace(tmp_path, trace.run_id) == [first], f'cut at byte {cut}'
+
+
+@pytest.mark.parametrize('more_events_after', [True, False])
+def test_a_bad_line_written_whole_raises(tmp_path, more_events_after):
+    # Only a last line missing its newline can be a torn write. A bad line that ends
+    # in a newline was written whole: that's corruption, and must not be hidden.
+    trace = start_run(tmp_path)
+    trace.append('step', {'n': 1})
     with open(tmp_path / f'{trace.run_id}.jsonl', 'a', encoding='utf-8') as f:
-        f.write('{"seq": 2, "timestamp": "2026-')  # the process died mid-write
+        f.write('not json\n')
+    if more_events_after:
+        trace.append('step', {'n': 3})
 
-    assert read_trace(tmp_path, trace.run_id) == [first]
+    with pytest.raises(ValueError):
+        read_trace(tmp_path, trace.run_id)
 
 
-@pytest.mark.parametrize('run_id', ['no-such-run', '../outside', ''])
+@pytest.mark.parametrize('run_id', ['no-such-run', '../outside', 'sub/../../outside', ''])
 def test_reading_an_unknown_run_raises(tmp_path, run_id):
     trace_dir = tmp_path / 'traces'
-    trace_dir.mkdir()
+    (trace_dir / 'sub').mkdir(parents=True)
     (tmp_path / 'outside.jsonl').write_text('')  # a file, but outside the trace directory
 
     with pytest.raises(RunNotFoundError):

@@ -40,9 +40,11 @@ class TraceEvent:
 
 
 class Trace:
-    """A run's trace, open for appending. Get one from `start_run`.
+    """The writing side of a run's trace. Get one from `start_run`.
 
-    It offers no way to edit or delete events: only `append`.
+    It offers no way to edit or delete events: only `append`. Use one Trace per run:
+    `seq` is counted in memory, so a second writer on the same file would repeat
+    numbers. Not thread-safe.
     """
 
     def __init__(self, run_id: str, path: Path) -> None:
@@ -63,7 +65,10 @@ class Trace:
             payload=payload,
         )
         # Serialize before touching the file, so a bad payload writes nothing.
-        line = json.dumps(asdict(event))
+        # ensure_ascii (the default, kept explicit) escapes every non-ASCII character,
+        # so the file is pure ASCII: a write cut short by a crash can't split a
+        # multi-byte character and make the whole file undecodable.
+        line = json.dumps(asdict(event), ensure_ascii=True)
 
         # Open, write and close for every event: closing flushes Python's buffer to
         # the OS, so a process crash loses nothing already appended. (Surviving a
@@ -103,8 +108,8 @@ def read_trace(trace_dir: Path, run_id: str) -> list[TraceEvent]:
         raise RunNotFoundError(run_id)
 
     events = []
-    # Split on '\n' only: str.splitlines() also breaks on characters such as U+2028,
-    # which can appear inside a JSON string.
+    # Split on '\n' only: str.splitlines() also breaks on characters such as U+2028.
+    # The writer escapes those, but the reader shouldn't depend on it.
     lines = path.read_text(encoding='utf-8').split('\n')
     for i, line in enumerate(lines):
         if not line:

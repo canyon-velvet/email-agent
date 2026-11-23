@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import sysconfig
+from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
 
@@ -104,8 +105,11 @@ def test_trace_prints_a_runs_events_in_order(tmp_path):
     # One line per event: seq, timestamp, type, then the payload as JSON.
     columns = [line.split('  ', 3) for line in result.stdout.splitlines()]
     assert [row[0] for row in columns] == ['1', '2']
+    for row in columns:
+        datetime.fromisoformat(row[1])  # raises unless it's an ISO 8601 time
     assert [row[2] for row in columns] == ['tool_call', 'tool_result']
     assert json.loads(columns[1][3]) == {'text': 'café'}
+    assert 'café' in result.stdout  # readable, not escaped as é
 
 
 def test_trace_reads_the_traces_directory_by_default(tmp_path):
@@ -123,7 +127,7 @@ def test_the_default_trace_directory_is_ignored_by_git():
     repo = Path(__file__).resolve().parents[1]
     result = subprocess.run(['git', 'check-ignore', '-q', 'traces/a-run.jsonl'], cwd=repo)
 
-    assert result.returncode == 0  # 0 means ignored
+    assert result.returncode == 0, 'traces/ is not git-ignored'
 
 
 def test_trace_rejects_an_unknown_run_with_a_short_error(tmp_path):
