@@ -44,7 +44,7 @@ class ToolInput(BaseModel):
 class ToolError(BaseModel):
     """A failure the model can act on: what went wrong, and what to do next."""
 
-    error: Literal['invalid_arguments', 'not_found']
+    error: Literal['invalid_arguments', 'not_found', 'unknown_tool']
     message: str
 
 
