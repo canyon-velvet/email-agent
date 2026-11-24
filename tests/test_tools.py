@@ -3,6 +3,7 @@
 from dataclasses import asdict
 
 import pytest
+from pydantic import TypeAdapter, ValidationError
 
 from email_agent.mail import FixtureProvider, MailProvider
 from email_agent.model import ToolSchema
@@ -34,8 +35,10 @@ def test_each_tool_exports_its_schema_for_model_requests(mailbox, name, required
     assert set(schema.input_schema['required']) == required
     # Unknown arguments are refused, as Claude's strict tool use also requires.
     assert schema.input_schema['additionalProperties'] is False
-    # The model learns what to write in `reason` from its description.
-    assert schema.input_schema['properties']['reason']['description']
+    properties = schema.input_schema['properties']
+    assert set(properties) == required  # no optional extras
+    # Every argument has a description: it's how the model learns what to write.
+    assert all(field.get('description') for field in properties.values())
 
 
 def test_fetch_unread_emails_lists_snippets_never_bodies(mailbox):
@@ -74,6 +77,7 @@ def test_bad_arguments_return_a_tool_error_naming_the_field(mailbox, name, argum
     assert isinstance(outcome.output, ToolError)
     assert outcome.output.error == 'invalid_arguments'
     assert field in outcome.output.message  # so the model can fix its call
+    assert name in outcome.output.message  # and knows which tool to call again
 
 
 def test_an_unknown_message_id_returns_a_tool_error_saying_what_to_do(mailbox):
@@ -85,6 +89,7 @@ def test_an_unknown_message_id_returns_a_tool_error_saying_what_to_do(mailbox):
     assert 'fetch_unread_emails' in outcome.output.message  # where a valid ID comes from
 
 
+@pytest.mark.parametrize('origin', ['synthetic', 'email_content'])  # a real mailbox's
 @pytest.mark.parametrize(
     ('name', 'arguments'),
     [
@@ -94,21 +99,42 @@ def test_an_unknown_message_id_returns_a_tool_error_saying_what_to_do(mailbox):
         ('read_email', {'reason': ''}),
     ],
 )
-def test_every_outcome_carries_its_mailbox_origin_errors_included(mailbox, name, arguments):
-    mailbox.data_origin = 'email_content'  # as a real mailbox would be
+def test_every_outcome_carries_its_mailbox_origin_errors_included(mailbox, name, arguments, origin):
+    mailbox.data_origin = origin
 
     outcome = inbox_tools(mailbox)[name].call(arguments)
 
-    assert outcome.origin == 'email_content'
+    assert outcome.origin == origin
 
 
-def test_an_unexpected_failure_is_raised_not_handed_to_the_model(mailbox, monkeypatch):
+def disk_on_fire(message_id: str):
+    raise RuntimeError('disk on fire')
+
+
+def missing_metadata(message_id: str):
+    raise KeyError('threadId')  # a LookupError, like MessageNotFoundError, but a bug
+
+
+def bad_data_from_our_side(message_id: str):
+    # A ValidationError from our own code, not from the model's arguments: telling
+    # the model to fix its arguments would send it round in circles.
+    return TypeAdapter(int).validate_python('not a number')
+
+
+@pytest.mark.parametrize(
+    ('broken', 'error'),
+    [
+        (disk_on_fire, RuntimeError),
+        (missing_metadata, KeyError),
+        (bad_data_from_our_side, ValidationError),
+    ],
+)
+def test_an_unexpected_failure_is_raised_not_handed_to_the_model(
+    mailbox, monkeypatch, broken, error
+):
     # Only the expected failures become tool errors. A bug in our code should crash
     # loudly, not reach the model looking like its own mistake.
-    def broken(message_id: str):
-        raise RuntimeError('disk on fire')
-
     monkeypatch.setattr(mailbox, 'get_message', broken)
 
-    with pytest.raises(RuntimeError, match='disk on fire'):
+    with pytest.raises(error):
         ReadEmail(mailbox).call({'message_id': LUNCH, 'reason': 'Read it.'})
