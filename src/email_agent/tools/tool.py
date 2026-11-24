@@ -7,7 +7,13 @@ from abc import ABC, abstractmethod
 
 class ToolInput(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    reason: str = Field(min_length=1, description='Why you are calling this tool, in one sentence.')
+    reason: str = Field(
+        min_length=1,
+        description=(
+            'One sentence on why you are making this call, for example "Check whether '
+            'this invoice needs a reply." It is recorded so your actions can be reviewed.'
+        ),
+    )
 
 class ToolError(BaseModel):
     error: Literal['invalid_arguments', 'not_found']
@@ -35,12 +41,19 @@ class Tool(ABC):
         try:
             args = self.input_model.model_validate(arguments)
         except ValidationError as e:
-            return ToolOutcome(ToolError(error='invalid_arguments', message='TODO'), origin)
+            # e.g. "message_id: Field required; id: Extra inputs are not permitted"
+            problems = '; '.join(
+                f'{".".join(str(part) for part in error["loc"])}: {error["msg"]}'
+                for error in e.errors()
+            )
+            message = f'Invalid arguments ({problems}). Fix them and call {self.name} again.'
+            return ToolOutcome(ToolError(error='invalid_arguments', message=message), origin)
 
         try:
             output = self.run(args)
         except MessageNotFoundError as e:
-             return ToolOutcome(ToolError(error='not_found', message='TODO'), origin)
+            message = f"No message with ID '{e}'. Use an ID from fetch_unread_emails."
+            return ToolOutcome(ToolError(error='not_found', message=message), origin)
         return ToolOutcome(output, origin)
 
     @abstractmethod
