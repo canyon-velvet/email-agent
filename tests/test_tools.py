@@ -89,7 +89,7 @@ def test_an_unknown_message_id_returns_a_tool_error_saying_what_to_do(mailbox):
     assert 'fetch_unread_emails' in outcome.output.message  # where a valid ID comes from
 
 
-@pytest.mark.parametrize('origin', ['synthetic', 'email_content'])  # a real mailbox's
+@pytest.mark.parametrize('origin', ['synthetic', 'email_content'])  # fixture, real mailbox
 @pytest.mark.parametrize(
     ('name', 'arguments'),
     [
