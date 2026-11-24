@@ -72,6 +72,7 @@ def run_agent(
     history: list[Message] = [UserMessage(task)]
 
     status = 'max_iterations'
+    text = ''
     for i in range(1, max_iterations + 1):
         client, decision = router.route(origins)
         trace.append(
@@ -84,6 +85,7 @@ def run_agent(
             },
         )
         reply = client.complete(ModelRequest(system=system, messages=tuple(history), tools=schemas))
+        text = reply.message.text
         trace.append(
             'model_reply',
             {
@@ -124,6 +126,6 @@ def run_agent(
             origins.append(origin)
             results.append(ToolResult(call.id, outcome.output.model_dump_json(), is_error=is_error))
         history.append(ToolResultMessage(tuple(results)))
-    trace.append('run_finished', {'status': status, 'text': reply.message.text})
+    trace.append('run_finished', {'status': status, 'text': text})
 
-    return RunResult(status, reply.message.text)
+    return RunResult(status, text)
