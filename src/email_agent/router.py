@@ -76,4 +76,6 @@ class ModelRouter:
                     destination=dest,
                     reason=f'{tag} may go to {", ".join(allowed)}; using {dest}',
                 )
-        raise RoutingError(f'no model for {tag} data: the policy allows {", ".join(allowed) or 'nowhere'}')
+        raise RoutingError(
+            f'no model for {tag} data: the policy allows {", ".join(allowed) or "nowhere"}'
+        )
