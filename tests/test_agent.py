@@ -17,6 +17,7 @@ from email_agent.model import (
     ScriptExhaustedError,
     StopReason,
     ToolCall,
+    ToolResult,
     ToolResultMessage,
     Usage,
     UserMessage,
@@ -28,6 +29,8 @@ SYSTEM = 'You triage email.'
 TASK = 'Triage my unread email.'
 LUNCH = '19a8f3c2b1d04e01'  # unread messages in the contract mailbox
 BUILD = '19a80b17c3f25b02'
+INVOICE = '19a84d6b9e1c7a03'
+SAM = '19a83c5d7e9f1a07'
 
 
 class SpyRouter(ModelRouter):
@@ -99,6 +102,10 @@ def says(text: str) -> ModelReply:
 
 def disk_on_fire(message_id: str):
     raise RuntimeError('disk on fire')
+
+
+def tool_results(messages) -> list[ToolResult]:
+    return [r for m in messages if isinstance(m, ToolResultMessage) for r in m.results]
 
 
 def results_sent_in(run: Run, request: int) -> ToolResultMessage:
@@ -218,6 +225,7 @@ def test_a_reply_that_stops_for_another_reason_ends_the_run_and_runs_no_tools(
             'invalid_arguments',
         ),
         (call('c1', 'archive_everything'), 'unknown_tool'),
+        (call('c1', 'archive_email', message_id='no-such-id'), 'not_found'),
     ],
 )
 def test_a_tool_error_goes_back_to_the_model_and_the_run_continues(run_script, bad_call, error):
@@ -312,6 +320,95 @@ def test_a_crash_mid_run_still_leaves_what_was_asked_in_the_trace(
     # Exactly this crash: ScriptExhaustedError is also a RuntimeError.
     assert raised.type is crash
     assert read_trace(tmp_path, trace.run_id)[-1].type == last_event
+
+
+def triage(run_script) -> Run:
+    """A scripted triage of the four unread messages, ending in one draft."""
+    return run_script(
+        wants(call('c1', 'fetch_unread_emails')),
+        wants(
+            call('c2', 'star_email', message_id=LUNCH),
+            call('c3', 'draft_reply', message_id=LUNCH, body='Noon on Thursday works.'),
+            call('c4', 'apply_label', message_id=INVOICE, label_name='Finance'),
+        ),
+        wants(
+            call('c5', 'archive_email', message_id=BUILD),
+            call('c6', 'mark_as_read', message_id=SAM),
+        ),
+        says('Triaged 4 messages; one reply is drafted for you to review.'),
+    )
+
+
+def changes(
+    before: dict[str, frozenset[str]], after: dict[str, frozenset[str]]
+) -> dict[str, tuple[set[str], set[str]]]:
+    """The labels each changed message gained and lost."""
+    return {
+        id: (set(after[id] - before[id]), set(before[id] - after[id]))
+        for id in before
+        if after[id] != before[id]
+    }
+
+
+def test_a_triage_run_leaves_the_mailbox_in_the_expected_state(run_script, mailbox):
+    # Judged by the outcome, the labels and drafts, not by the exact calls made.
+    before = mailbox.snapshot()
+
+    run = triage(run_script)
+
+    assert run.result.status == 'end_turn'
+    assert changes(before, mailbox.snapshot()) == {
+        LUNCH: ({'STARRED'}, set()),
+        INVOICE: ({'Finance'}, set()),
+        BUILD: (set(), {'INBOX'}),
+        SAM: (set(), {'UNREAD'}),
+    }
+    [draft] = mailbox.list_drafts()
+    assert (draft.in_reply_to, draft.body) == (LUNCH, 'Noon on Thursday works.')
+    assert not [r for m in run.model.requests for r in tool_results(m.messages) if r.is_error]
+
+
+def test_every_mailbox_change_is_in_the_trace_with_the_call_that_caused_it(run_script, mailbox):
+    before = mailbox.snapshot()
+
+    run = triage(run_script)
+
+    # Replaying the trace's reported changes on the starting labels gives the final
+    # labels: nothing changed the mailbox without showing up in the trace.
+    calls = {e.payload['id']: e.payload for e in run.events if e.type == 'tool_call'}
+    replayed = {id: set(labels) for id, labels in before.items()}
+    drafts = []
+    for event in run.events:
+        if event.type != 'tool_output':
+            continue
+        output, call = event.payload['output'], calls[event.payload['call_id']]
+        if 'added' in output:
+            assert output['message_id'] == call['arguments']['message_id']
+            replayed[output['message_id']] |= set(output['added'])
+            replayed[output['message_id']] -= set(output['removed'])
+        if 'draft_id' in output:
+            assert output['in_reply_to'] == call['arguments']['message_id']
+            drafts.append(output['draft_id'])
+    assert replayed == {id: set(labels) for id, labels in mailbox.snapshot().items()}
+    assert drafts == [d.id for d in mailbox.list_drafts()]
+
+
+def test_the_agent_is_offered_exactly_the_mail_tools_and_none_can_send(run_script):
+    # Least privilege: a new tool, such as one that sends or forwards mail, fails
+    # this test until it's added here on purpose.
+    run = run_script(says('Nothing to do.'))
+
+    assert {tool.name for tool in run.model.requests[0].tools} == {
+        'fetch_unread_emails',
+        'read_email',
+        'star_email',
+        'mark_as_read',
+        'archive_email',
+        'apply_label',
+        'report_spam',
+        'trash_email',
+        'draft_reply',
+    }
 
 
 def test_every_request_is_routed_with_the_origin_of_everything_so_far(run_script):
