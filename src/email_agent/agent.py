@@ -42,7 +42,8 @@ def run_agent(task: str, *, mailbox: MailProvider, router: ModelRouter, trace: T
             tool = tools.get(call.name)
             trace.append('tool_call', asdict(call))
             if tool is None:
-                 outcome = ToolOutcome(ToolError(error='unknown_tool', message='TODO'), 'public')
+                 message = f"No tool named '{call.name}'. Use one of: {', '.join(tools)}."
+                 outcome = ToolOutcome(ToolError(error='unknown_tool', message=message), 'public')
             else:
                 outcome = tool.call(call.arguments)
             is_error = isinstance(outcome.output, ToolError)
