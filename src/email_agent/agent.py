@@ -31,7 +31,7 @@ class RunResult:
     """How a run ended, and the model's last text.
 
     `status` is the model's stop reason ('end_turn', 'max_tokens' or 'refusal'), or
-    'max_iterations' if the run hit its limit while the model still wanted tools.
+    'max_iterations' if the run reached its limit before the model stopped.
     """
 
     status: str

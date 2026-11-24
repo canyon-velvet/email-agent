@@ -158,7 +158,11 @@ def test_the_iteration_limit_stops_the_run_and_runs_no_unanswered_calls(run_scri
     # third model call would fail the test rather than hang.
     run = run_script(
         wants(call('c1', 'fetch_unread_emails')),
-        wants(call('c2', 'fetch_unread_emails'), text='Still working.'),
+        wants(
+            call('c2', 'fetch_unread_emails'),
+            text='Still working.',
+            provider_data={'thinking': 'still thinking'},
+        ),
         max_iterations=2,
     )
 
@@ -166,9 +170,11 @@ def test_the_iteration_limit_stops_the_run_and_runs_no_unanswered_calls(run_scri
     assert len(run.model.requests) == 2
     # The last reply's call isn't run: its result could never go back to the model.
     assert [e.payload['id'] for e in run.events if e.type == 'tool_call'] == ['c1']
-    # It's still in the trace, in the reply that asked for it.
+    # It's still in the trace, in the reply that asked for it, with its provider data:
+    # no later request carries this last reply.
     last_reply = [e.payload for e in run.events if e.type == 'model_reply'][-1]
     assert [c['id'] for c in last_reply['tool_calls']] == ['c2']
+    assert last_reply['provider_data'] == {'thinking': 'still thinking'}
     assert run.events[-1].payload == {'status': 'max_iterations', 'text': 'Still working.'}
 
 
@@ -293,15 +299,18 @@ def test_a_crash_mid_run_still_leaves_what_was_asked_in_the_trace(
     monkeypatch.setattr(mailbox, 'get_message', disk_on_fire)
     trace = start_run(tmp_path)
 
-    with pytest.raises(crash):
+    with pytest.raises(crash) as raised:
         run_agent(
             TASK,
             mailbox=mailbox,
             router=ModelRouter({'cloud': ScriptedModelClient(script)}),
             trace=trace,
             system=SYSTEM,
+            max_iterations=2,
         )
 
+    # Exactly this crash: ScriptExhaustedError is also a RuntimeError.
+    assert raised.type is crash
     assert read_trace(tmp_path, trace.run_id)[-1].type == last_event
 
 
