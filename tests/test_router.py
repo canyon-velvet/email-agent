@@ -47,7 +47,7 @@ def test_an_unknown_origin_is_refused_not_treated_as_public():
     # A misspelling (say, from a trace read back as plain strings) must never be
     # guessed harmless: refusing it keeps real email off the cloud.
     with pytest.raises(ValueError):
-        both_models().route(['synthetic', 'emial_content'])
+        both_models().route(['synthetic', 'emial_content'])  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize(
