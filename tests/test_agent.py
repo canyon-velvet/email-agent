@@ -4,6 +4,7 @@ result and its trace out (ticket #12)."""
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
@@ -13,6 +14,7 @@ from email_agent.model import (
     AssistantMessage,
     ModelReply,
     ScriptedModelClient,
+    ScriptExhaustedError,
     StopReason,
     ToolCall,
     ToolResultMessage,
@@ -79,9 +81,9 @@ def call(id: str, name: str, **arguments) -> ToolCall:
     return ToolCall(id=id, name=name, arguments={'reason': 'Triage.', **arguments})
 
 
-def wants(*calls: ToolCall, text: str = '') -> ModelReply:
+def wants(*calls: ToolCall, text: str = '', provider_data: Any = None) -> ModelReply:
     return ModelReply(
-        message=AssistantMessage(text=text, tool_calls=calls),
+        message=AssistantMessage(text=text, tool_calls=calls, provider_data=provider_data),
         stop_reason=StopReason.TOOL_USE,
         usage=Usage(input_tokens=100, output_tokens=20),
     )
@@ -95,6 +97,10 @@ def says(text: str) -> ModelReply:
     )
 
 
+def disk_on_fire(message_id: str):
+    raise RuntimeError('disk on fire')
+
+
 def results_sent_in(run: Run, request: int) -> ToolResultMessage:
     last = run.model.requests[request].messages[-1]
     assert isinstance(last, ToolResultMessage)
@@ -102,11 +108,13 @@ def results_sent_in(run: Run, request: int) -> ToolResultMessage:
 
 
 def test_a_run_lists_the_inbox_reads_a_message_and_finishes(run_script):
-    run = run_script(
-        wants(call('c1', 'fetch_unread_emails'), text='Let me look at the inbox.'),
-        wants(call('c2', 'read_email', message_id=LUNCH)),
-        says('Alice asks about lunch on Thursday.'),
+    listing = wants(
+        call('c1', 'fetch_unread_emails'),
+        text='Let me look at the inbox.',
+        provider_data={'thinking': 'opaque to the loop'},
     )
+    reading = wants(call('c2', 'read_email', message_id=LUNCH))
+    run = run_script(listing, reading, says('Alice asks about lunch on Thursday.'))
 
     # The result is the last reply's text, not text from along the way.
     assert run.result == RunResult(status='end_turn', text='Alice asks about lunch on Thursday.')
@@ -120,8 +128,13 @@ def test_a_run_lists_the_inbox_reads_a_message_and_finishes(run_script):
         AssistantMessage,
         ToolResultMessage,
     ]
+    # Each reply goes back exactly as it came: an API rejects a tool result whose call
+    # is missing, and provider data (Claude's thinking) must survive the round trip.
+    assert (last.messages[1], last.messages[3]) == (listing.message, reading.message)
     assert last.system == SYSTEM
     assert {'fetch_unread_emails', 'read_email'} <= {tool.name for tool in last.tools}
+    [inbox] = results_sent_in(run, 1).results
+    assert LUNCH in [email['id'] for email in json.loads(inbox.content)['emails']]
     [result] = results_sent_in(run, 2).results
     assert (result.call_id, result.is_error) == ('c2', False)
     assert json.loads(result.content)['subject'] == 'Re: Lunch on Thursday?'
@@ -145,14 +158,32 @@ def test_the_iteration_limit_stops_the_run_and_runs_no_unanswered_calls(run_scri
     # third model call would fail the test rather than hang.
     run = run_script(
         wants(call('c1', 'fetch_unread_emails')),
-        wants(call('c2', 'fetch_unread_emails')),
+        wants(call('c2', 'fetch_unread_emails'), text='Still working.'),
         max_iterations=2,
     )
 
-    assert run.result.status == 'max_iterations'
+    assert run.result == RunResult(status='max_iterations', text='Still working.')
     assert len(run.model.requests) == 2
     # The last reply's call isn't run: its result could never go back to the model.
     assert [e.payload['id'] for e in run.events if e.type == 'tool_call'] == ['c1']
+    # It's still in the trace, in the reply that asked for it.
+    last_reply = [e.payload for e in run.events if e.type == 'model_reply'][-1]
+    assert [c['id'] for c in last_reply['tool_calls']] == ['c2']
+    assert run.events[-1].payload == {'status': 'max_iterations', 'text': 'Still working.'}
+
+
+def test_a_run_that_finishes_on_its_last_allowed_call_ends_normally(run_script):
+    run = run_script(wants(call('c1', 'fetch_unread_emails')), says('Done.'), max_iterations=2)
+
+    assert run.result == RunResult(status='end_turn', text='Done.')
+
+
+def test_a_limit_of_zero_makes_no_model_call(run_script):
+    run = run_script(max_iterations=0)
+
+    assert run.result == RunResult(status='max_iterations', text='')
+    assert run.model.requests == []
+    assert [e.type for e in run.events] == ['run_finished']
 
 
 @pytest.mark.parametrize('stop_reason', [StopReason.MAX_TOKENS, StopReason.REFUSAL])
@@ -246,6 +277,34 @@ def test_the_trace_records_each_request_reply_call_and_output_in_order(run_scrip
     assert run.events[-1].payload == {'status': 'end_turn', 'text': 'Done.'}
 
 
+@pytest.mark.parametrize(
+    ('script', 'crash', 'last_event'),
+    [
+        # The model call fails: no second reply is scripted.
+        ([wants(call('c1', 'fetch_unread_emails'))], ScriptExhaustedError, 'model_request'),
+        # A tool hits a bug.
+        ([wants(call('c1', 'read_email', message_id=LUNCH))], RuntimeError, 'tool_call'),
+    ],
+)
+def test_a_crash_mid_run_still_leaves_what_was_asked_in_the_trace(
+    mailbox, tmp_path, monkeypatch, script, crash, last_event
+):
+    # Each step is recorded before it runs, so the trace shows what failed.
+    monkeypatch.setattr(mailbox, 'get_message', disk_on_fire)
+    trace = start_run(tmp_path)
+
+    with pytest.raises(crash):
+        run_agent(
+            TASK,
+            mailbox=mailbox,
+            router=ModelRouter({'cloud': ScriptedModelClient(script)}),
+            trace=trace,
+            system=SYSTEM,
+        )
+
+    assert read_trace(tmp_path, trace.run_id)[-1].type == last_event
+
+
 def test_every_request_is_routed_with_the_origin_of_everything_so_far(run_script):
     # The first request has no tool output yet; it takes the mailbox's origin, so a
     # fixture run is `synthetic` from the start. An unknown-tool error holds no mail
@@ -253,14 +312,24 @@ def test_every_request_is_routed_with_the_origin_of_everything_so_far(run_script
     run = run_script(wants(call('c1', 'archive_everything')), says('Done.'))
 
     assert run.router.routed == [{'synthetic'}, {'synthetic', 'public'}]
+    assert [e.payload['origin'] for e in run.events if e.type == 'tool_output'] == ['public']
     assert [e.payload['tag'] for e in run.events if e.type == 'model_request'] == [
         'synthetic',
         'synthetic',
     ]
 
 
-def test_real_email_with_only_a_cloud_model_is_refused_before_any_model_call(run_script, mailbox):
+def test_real_email_with_only_a_cloud_model_is_refused_before_any_model_call(mailbox, tmp_path):
     mailbox.data_origin = 'email_content'
+    model = ScriptedModelClient([says('This must never be asked.')])
 
     with pytest.raises(RoutingError):
-        run_script(says('This must never be asked.'))
+        run_agent(
+            TASK,
+            mailbox=mailbox,
+            router=ModelRouter({'cloud': model}),
+            trace=start_run(tmp_path),
+            system=SYSTEM,
+        )
+
+    assert model.requests == []
