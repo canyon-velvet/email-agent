@@ -1,11 +1,6 @@
-from email_agent.tools.tool import Tool, ToolError, ToolInput, ToolOutcome
-from email_agent.tools.inbox_tools import FetchUnreadEmails, ReadEmail
+"""Agent tools: the tool protocol, and the tools built on it."""
 
-__all__ = [
-    'Tool',
-    'ToolInput',
-    'ToolError',
-    'ToolOutcome',
-    'FetchUnreadEmails',
-    'ReadEmail'
-]
+from email_agent.tools.inbox_tools import FetchUnreadEmails, ReadEmail
+from email_agent.tools.tool import Tool, ToolError, ToolInput, ToolOutcome
+
+__all__ = ['Tool', 'ToolInput', 'ToolError', 'ToolOutcome', 'FetchUnreadEmails', 'ReadEmail']

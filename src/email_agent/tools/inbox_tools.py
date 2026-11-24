@@ -1,17 +1,28 @@
-from pydantic import BaseModel, Field
-from email_agent.tools.tool import Tool, ToolInput
+"""The two eager inbox tools: list the unread messages, and read one in full."""
+
 from dataclasses import asdict
 
+from pydantic import BaseModel, Field
+
+from email_agent.tools.tool import Tool, ToolInput
+
+
 class EmailSummary(BaseModel):
+    """One unread message as the listing shows it: never its body."""
+
     id: str
     sender: str
     subject: str
     snippet: str
 
+
 class UnreadEmails(BaseModel):
     emails: list[EmailSummary]
 
+
 class Email(BaseModel):
+    """One full message: headers, and the body as plain text."""
+
     id: str
     thread_id: str
     sender: str
@@ -24,10 +35,12 @@ class Email(BaseModel):
 class FetchUnreadEmailsInput(ToolInput):
     pass
 
+
 class ReadEmailInput(ToolInput):
     message_id: str = Field(
         description='The ID of the message to read, exactly as fetch_unread_emails gave it.'
     )
+
 
 class FetchUnreadEmails(Tool):
     name = 'fetch_unread_emails'
@@ -43,8 +56,11 @@ class FetchUnreadEmails(Tool):
         emails = []
         messages = self._mailbox.list_unread()
         for msg in messages:
-            emails.append(EmailSummary(id=msg.id, sender=msg.sender, subject=msg.subject, snippet=msg.snippet))
+            emails.append(
+                EmailSummary(id=msg.id, sender=msg.sender, subject=msg.subject, snippet=msg.snippet)
+            )
         return UnreadEmails(emails=emails)
+
 
 class ReadEmail(Tool):
     name = 'read_email'
