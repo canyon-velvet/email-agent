@@ -24,7 +24,9 @@ LABEL_CHANGES = {
     'mark_as_read': {'added': [], 'removed': ['UNREAD']},
     'archive_email': {'added': [], 'removed': ['INBOX']},
     'report_spam': {'added': ['SPAM'], 'removed': ['INBOX']},
-    'trash_email': {'added': ['TRASH'], 'removed': ['INBOX']},
+    # Only TRASH: the contract doesn't promise what trash does to INBOX, and a
+    # trashed message keeps its labels, so restoring it puts it back where it was.
+    'trash_email': {'added': ['TRASH'], 'removed': []},
     'apply_label': {'added': ['Finance'], 'removed': []},
 }
 

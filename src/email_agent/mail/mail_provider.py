@@ -99,6 +99,7 @@ class MailProvider(Protocol):
     def list_unread(self) -> list[MessageSummary]:
         """Return unread inbox messages (labelled INBOX and UNREAD), newest first.
 
+        A trashed message is never listed, even if it keeps INBOX and UNREAD.
         Summaries carry snippets only, never message bodies.
         """
         ...
@@ -129,6 +130,9 @@ class MailProvider(Protocol):
     def trash(self, message_id: str) -> None:
         """Move the message to the trash: add TRASH, and drop it from the inbox listing.
 
+        Only TRASH is promised: Gmail's docs don't say what trash does to the other
+        labels. The fixture keeps them, so restoring a message (removing TRASH) puts it
+        back where it was; a Gmail provider should confirm Gmail does the same.
         Its own method, not an `apply_label`, so a permission policy can gate it.
         """
         ...
