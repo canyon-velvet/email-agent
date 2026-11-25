@@ -13,6 +13,17 @@ def test_fixture_data_is_tagged_synthetic(contract_mailbox):
     assert FixtureProvider(contract_mailbox).data_origin == 'synthetic'
 
 
+def test_trash_keeps_the_other_labels(contract_mailbox):
+    # The contract promises only TRASH; the fixture keeps the rest, as Gmail is
+    # believed to, so a later restore can put the message back in the inbox.
+    mailbox = FixtureProvider(contract_mailbox)
+    before = mailbox.snapshot()[LUNCH]
+
+    mailbox.trash(LUNCH)
+
+    assert mailbox.snapshot()[LUNCH] == before | {'TRASH'}
+
+
 def test_one_malformed_unread_message_does_not_break_the_listing(tmp_path):
     unread = {'labelIds': ['INBOX', 'UNREAD'], 'snippet': 'Hello.'}
     messages = [

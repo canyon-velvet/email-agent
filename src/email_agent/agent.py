@@ -21,7 +21,7 @@ from email_agent.model.model_client import (
     UserMessage,
 )
 from email_agent.router import ModelRouter
-from email_agent.tools.inbox_tools import FetchUnreadEmails, ReadEmail
+from email_agent.tools import MAIL_TOOLS
 from email_agent.tools.tool import ToolError, ToolOutcome
 from email_agent.trace import Trace
 
@@ -66,7 +66,7 @@ def run_agent(
     mailbox's data before any tool has run. Raises RoutingError if the router allows
     a request nowhere: a real mailbox with only a cloud model fails before any call.
     """
-    tools = {tool.name: tool for tool in (FetchUnreadEmails(mailbox), ReadEmail(mailbox))}
+    tools = {cls.name: cls(mailbox) for cls in MAIL_TOOLS}
     schemas = tuple(tool.schema() for tool in tools.values())
     origins: list[DataOrigin] = [mailbox.data_origin]
     history: list[Message] = [UserMessage(task)]
