@@ -6,6 +6,7 @@ from email_agent.mail.mail_provider import (
     Message,
     MessageNotFoundError,
     MessageSummary,
+    SYSTEM_LABELS
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     'MessageNotFoundError',
     'Message',
     'Draft',
+    'SYSTEM_LABELS'
 ]
