@@ -1,21 +1,43 @@
+"""The triage action tools: every change the agent can make to the mailbox.
+
+Each label action reports the change it made as a LabelChange, so the trace shows
+every mailbox change next to the tool call that caused it. There is no tool that
+sends or forwards mail: draft_reply only saves a draft for the user to review.
+"""
+
 from pydantic import BaseModel, Field, field_validator
-from email_agent.tools.tool import Tool, ToolInput
+
 from email_agent.mail.mail_provider import SYSTEM_LABELS
+from email_agent.tools.tool import Tool, ToolInput
+
 
 class LabelChange(BaseModel):
+    """The labels a label action added to and removed from one message, by name.
+
+    It reports what the action applied, not a before/after diff: starring a message
+    that is already starred still reports STARRED as added.
+    """
+
     message_id: str
     added: list[str] = []
     removed: list[str] = []
 
+
 class DraftCreated(BaseModel):
+    """A new draft reply: its ID, and the message and thread it answers."""
+
     draft_id: str
     thread_id: str
     in_reply_to: str
 
+
 class MessageInput(ToolInput):
+    """The input of an action on one message."""
+
     message_id: str = Field(
         description='The ID of the message, exactly as fetch_unread_emails gave it.'
     )
+
 
 class ApplyLabelInput(MessageInput):
     label_name: str = Field(
@@ -29,6 +51,8 @@ class ApplyLabelInput(MessageInput):
     @field_validator('label_name')
     @classmethod
     def check_label_name(cls, value: str) -> str:
+        """Refuse a blank or system label name, here as bad arguments the model can fix,
+        and drop surrounding spaces so ' Finance ' and 'Finance' are the same label."""
         name = value.strip()
         if not name or name.upper() in SYSTEM_LABELS:
             raise ValueError(
@@ -37,6 +61,7 @@ class ApplyLabelInput(MessageInput):
                 'that tool instead'
             )
         return name
+
 
 class DraftReplyInput(MessageInput):
     body: str = Field(
@@ -47,6 +72,7 @@ class DraftReplyInput(MessageInput):
             'write a short holding reply instead.'
         ),
     )
+
 
 class StarEmail(Tool):
     name = 'star_email'
@@ -60,6 +86,7 @@ class StarEmail(Tool):
         self._mailbox.star(args.message_id)
         return LabelChange(message_id=args.message_id, added=['STARRED'])
 
+
 class MarkAsRead(Tool):
     name = 'mark_as_read'
     description = (
@@ -71,6 +98,7 @@ class MarkAsRead(Tool):
     def run(self, args: MessageInput) -> LabelChange:
         self._mailbox.mark_read(args.message_id)
         return LabelChange(message_id=args.message_id, removed=['UNREAD'])
+
 
 class ArchiveEmail(Tool):
     name = 'archive_email'
@@ -85,6 +113,7 @@ class ArchiveEmail(Tool):
         self._mailbox.archive(args.message_id)
         return LabelChange(message_id=args.message_id, removed=['INBOX'])
 
+
 class ReportSpam(Tool):
     name = 'report_spam'
     description = (
@@ -97,6 +126,7 @@ class ReportSpam(Tool):
     def run(self, args: MessageInput) -> LabelChange:
         self._mailbox.report_spam(args.message_id)
         return LabelChange(message_id=args.message_id, added=['SPAM'], removed=['INBOX'])
+
 
 class TrashEmail(Tool):
     name = 'trash_email'
@@ -112,6 +142,7 @@ class TrashEmail(Tool):
         self._mailbox.trash(args.message_id)
         return LabelChange(message_id=args.message_id, added=['TRASH'], removed=['INBOX'])
 
+
 class ApplyLabel(Tool):
     name = 'apply_label'
     description = (
@@ -125,6 +156,7 @@ class ApplyLabel(Tool):
         self._mailbox.apply_label(args.message_id, args.label_name)
         return LabelChange(message_id=args.message_id, added=[args.label_name])
 
+
 class DraftReply(Tool):
     name = 'draft_reply'
     description = (
@@ -136,4 +168,6 @@ class DraftReply(Tool):
 
     def run(self, args: DraftReplyInput) -> DraftCreated:
         draft = self._mailbox.create_draft(args.message_id, args.body)
-        return DraftCreated(draft_id=draft.id, thread_id=draft.thread_id, in_reply_to=draft.in_reply_to)
+        return DraftCreated(
+            draft_id=draft.id, thread_id=draft.thread_id, in_reply_to=draft.in_reply_to
+        )
