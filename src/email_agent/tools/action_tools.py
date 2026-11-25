@@ -13,25 +13,47 @@ class DraftCreated(BaseModel):
     in_reply_to: str
 
 class MessageInput(ToolInput):
-    message_id: str = Field(description='TODO')
+    message_id: str = Field(
+        description='The ID of the message, exactly as fetch_unread_emails gave it.'
+    )
 
 class ApplyLabelInput(MessageInput):
-    label_name: str = Field(description='TODO')
+    label_name: str = Field(
+        description=(
+            'The name of a user label, such as "Finance" or "Travel". It is created '
+            'if it does not exist yet. System labels such as INBOX, STARRED or SPAM are '
+            'not allowed: use the tool for that action instead.'
+        )
+    )
 
     @field_validator('label_name')
     @classmethod
     def check_label_name(cls, value: str) -> str:
         name = value.strip()
         if not name or name.upper() in SYSTEM_LABELS:
-            raise ValueError('TODO')
+            raise ValueError(
+                'must be a user label name, not blank or a system label such as INBOX; '
+                'to star, mark as read, archive, report spam or trash a message, use '
+                'that tool instead'
+            )
         return name
 
 class DraftReplyInput(MessageInput):
-    body: str = Field(min_length=1, description='TODO')
+    body: str = Field(
+        min_length=1,
+        description=(
+            'The reply, as plain text, ready for the user to review and send. State only '
+            'facts you have from the email or from the user; if you do not have them, '
+            'write a short holding reply instead.'
+        ),
+    )
 
 class StarEmail(Tool):
     name = 'star_email'
-    description = 'TODO'
+    description = (
+        "Star a message, to flag it for the user's attention or follow-up. It stays in "
+        'the inbox. Returns the labels added.'
+    )
     input_model = MessageInput
 
     def run(self, args: MessageInput) -> LabelChange:
@@ -40,7 +62,10 @@ class StarEmail(Tool):
 
 class MarkAsRead(Tool):
     name = 'mark_as_read'
-    description = 'TODO'
+    description = (
+        'Mark a message as read, when it needs no attention from the user. It stays in '
+        'the inbox unless you also archive it. Returns the labels removed.'
+    )
     input_model = MessageInput
 
     def run(self, args: MessageInput) -> LabelChange:
@@ -49,7 +74,11 @@ class MarkAsRead(Tool):
 
 class ArchiveEmail(Tool):
     name = 'archive_email'
-    description = 'TODO'
+    description = (
+        'Archive a message: remove it from the inbox. It keeps its other labels and can '
+        'still be found, so use this for mail that needs no further action. It does not '
+        'mark the message as read. Returns the labels removed.'
+    )
     input_model = MessageInput
 
     def run(self, args: MessageInput) -> LabelChange:
@@ -58,7 +87,11 @@ class ArchiveEmail(Tool):
 
 class ReportSpam(Tool):
     name = 'report_spam'
-    description = 'TODO'
+    description = (
+        'Report a message as spam: move it out of the inbox into spam. Use it for scams, '
+        'phishing and unsolicited bulk mail, not for mail that is merely unwanted; archive '
+        'that instead. Returns the labels added and removed.'
+    )
     input_model = MessageInput
 
     def run(self, args: MessageInput) -> LabelChange:
@@ -67,7 +100,12 @@ class ReportSpam(Tool):
 
 class TrashEmail(Tool):
     name = 'trash_email'
-    description = 'TODO'
+    description = (
+        'Move a message to the trash: remove it from the inbox. Trashed mail can be '
+        'restored for a while, then is deleted for good, so use this only for mail with '
+        'nothing worth keeping, and prefer archive_email when in doubt. Returns the '
+        'labels added and removed.'
+    )
     input_model = MessageInput
 
     def run(self, args: MessageInput) -> LabelChange:
@@ -76,7 +114,11 @@ class TrashEmail(Tool):
 
 class ApplyLabel(Tool):
     name = 'apply_label'
-    description = 'TODO'
+    description = (
+        'Add a user label to a message, such as "Finance" or "Travel", creating the label '
+        'if needed. A message can have several labels, and labelling it does not remove '
+        'it from the inbox. Returns the label added.'
+    )
     input_model = ApplyLabelInput
 
     def run(self, args: ApplyLabelInput) -> LabelChange:
@@ -85,7 +127,11 @@ class ApplyLabel(Tool):
 
 class DraftReply(Tool):
     name = 'draft_reply'
-    description = 'TODO'
+    description = (
+        'Write a reply to a message and save it as a draft on its thread, for the user '
+        'to review and send. This never sends email; nothing you can do sends email. '
+        "Each call creates a new draft, so draft each reply once. Returns the draft's ID."
+    )
     input_model = DraftReplyInput
 
     def run(self, args: DraftReplyInput) -> DraftCreated:
