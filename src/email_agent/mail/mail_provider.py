@@ -131,8 +131,9 @@ class MailProvider(Protocol):
         """Move the message to the trash: add TRASH, and drop it from the inbox listing.
 
         Only TRASH is promised: Gmail's docs don't say what trash does to the other
-        labels. The fixture keeps them, so restoring a message (removing TRASH) puts it
-        back where it was; a Gmail provider should confirm Gmail does the same.
+        labels. The fixture keeps them, so that a restore (removing TRASH, which undo
+        will add later) puts the message back where it was; a Gmail provider should
+        confirm Gmail does the same.
         Its own method, not an `apply_label`, so a permission policy can gate it.
         """
         ...

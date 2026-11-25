@@ -130,10 +130,11 @@ class ReportSpam(Tool):
 class TrashEmail(Tool):
     name = 'trash_email'
     description = (
-        'Move a message to the trash: remove it from the inbox. Trashed mail can be '
-        'restored for a while, then is deleted for good, so use this only for mail with '
-        'nothing worth keeping, and prefer archive_email when in doubt. Returns the '
-        'labels added and removed.'
+        'Move a message to the trash. It leaves the inbox listing, and keeps its other '
+        'labels so a restore puts it back where it was; there is no need to archive it '
+        'too. Trashed mail is deleted for good after a while, so use this only for mail '
+        'with nothing worth keeping, and prefer archive_email when in doubt. Returns the '
+        'label added.'
     )
     input_model = MessageInput
 
