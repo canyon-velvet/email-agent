@@ -37,10 +37,11 @@ class FixtureProvider:
         self._drafts: list[Draft] = []
 
     def list_unread(self) -> list[MessageSummary]:
-        """Return unread inbox messages, newest first (see `MailProvider.list_unread`)."""
+        """Return unread inbox messages, newest first (see `MailProvider.list_unread`). A trashed message is never listed."""
         unread = []
         for message in self._metadata.values():
-            if {'INBOX', 'UNREAD'} <= self._labels[message['id']]:
+            labels = self._labels[message['id']]
+            if {'INBOX', 'UNREAD'} <= labels and 'TRASH' not in labels:
                 unread.append(message)
 
         unread.sort(key=lambda x: int(x['internalDate']), reverse=True)
@@ -112,8 +113,8 @@ class FixtureProvider:
         self._modify(message_id, add={'SPAM'}, remove={'INBOX'})
 
     def trash(self, message_id: str) -> None:
-        """Add TRASH and remove INBOX (see `MailProvider.trash`)."""
-        self._modify(message_id, add={'TRASH'}, remove={'INBOX'})
+        """"Add TRASH, keeping the other labels."""
+        self._modify(message_id, add={'TRASH'})
 
     def apply_label(self, message_id: str, label_name: str) -> None:
         """Add a user label by name (see `MailProvider.apply_label`).

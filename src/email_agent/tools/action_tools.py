@@ -139,7 +139,7 @@ class TrashEmail(Tool):
 
     def run(self, args: MessageInput) -> LabelChange:
         self._mailbox.trash(args.message_id)
-        return LabelChange(message_id=args.message_id, added=['TRASH'], removed=['INBOX'])
+        return LabelChange(message_id=args.message_id, added=['TRASH'])
 
 
 class ApplyLabel(Tool):
