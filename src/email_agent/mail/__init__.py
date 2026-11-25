@@ -15,5 +15,5 @@ __all__ = [
     'DataOrigin',
     'MessageNotFoundError',
     'Message',
-    'Draft'
+    'Draft',
 ]
