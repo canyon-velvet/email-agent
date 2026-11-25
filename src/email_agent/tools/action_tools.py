@@ -77,8 +77,8 @@ class DraftReplyInput(MessageInput):
 class StarEmail(Tool):
     name = 'star_email'
     description = (
-        "Star a message, to flag it for the user's attention or follow-up. It stays in "
-        'the inbox. Returns the labels added.'
+        'Star a message. It stays in the inbox, and its read state is unchanged. Returns '
+        'the labels added.'
     )
     input_model = MessageInput
 
@@ -90,8 +90,8 @@ class StarEmail(Tool):
 class MarkAsRead(Tool):
     name = 'mark_as_read'
     description = (
-        'Mark a message as read, when it needs no attention from the user. It stays in '
-        'the inbox unless you also archive it. Returns the labels removed.'
+        'Mark a message as read. It stays in the inbox unless you also archive it. '
+        'Returns the labels removed.'
     )
     input_model = MessageInput
 
@@ -103,9 +103,8 @@ class MarkAsRead(Tool):
 class ArchiveEmail(Tool):
     name = 'archive_email'
     description = (
-        'Archive a message: remove it from the inbox. It keeps its other labels and can '
-        'still be found, so use this for mail that needs no further action. It does not '
-        'mark the message as read. Returns the labels removed.'
+        'Archive a message: remove it from the inbox. It keeps its other labels and is '
+        'not deleted, and archiving does not mark it as read. Returns the labels removed.'
     )
     input_model = MessageInput
 

@@ -8,15 +8,7 @@ from email_agent.tools import MAIL_TOOLS, Tool, ToolError
 LUNCH = '19a8f3c2b1d04e01'  # unread, in the inbox, not starred or labelled
 LUNCH_THREAD = '19a7e0d1c2b3a400'
 
-# Each label action, its extra arguments, and the change it makes and reports.
-LABEL_ACTIONS = [
-    ('star_email', {}, {'added': ['STARRED'], 'removed': []}),
-    ('mark_as_read', {}, {'added': [], 'removed': ['UNREAD']}),
-    ('archive_email', {}, {'added': [], 'removed': ['INBOX']}),
-    ('report_spam', {}, {'added': ['SPAM'], 'removed': ['INBOX']}),
-    ('trash_email', {}, {'added': ['TRASH'], 'removed': ['INBOX']}),
-    ('apply_label', {'label_name': 'Finance'}, {'added': ['Finance'], 'removed': []}),
-]
+# Each action tool, and the arguments it takes besides `reason` and `message_id`.
 ACTIONS = {
     'star_email': {},
     'mark_as_read': {},
@@ -25,6 +17,15 @@ ACTIONS = {
     'trash_email': {},
     'apply_label': {'label_name': 'Finance'},
     'draft_reply': {'body': 'Thursday at noon works for me.'},
+}
+# The change each label action makes, and reports.
+LABEL_CHANGES = {
+    'star_email': {'added': ['STARRED'], 'removed': []},
+    'mark_as_read': {'added': [], 'removed': ['UNREAD']},
+    'archive_email': {'added': [], 'removed': ['INBOX']},
+    'report_spam': {'added': ['SPAM'], 'removed': ['INBOX']},
+    'trash_email': {'added': ['TRASH'], 'removed': ['INBOX']},
+    'apply_label': {'added': ['Finance'], 'removed': []},
 }
 
 
@@ -44,36 +45,23 @@ def act(mailbox: FixtureProvider, name: str, message_id: str = LUNCH, **argument
     )
 
 
-@pytest.mark.parametrize(
-    ('name', 'extra'),
-    [
-        ('star_email', set()),
-        ('mark_as_read', set()),
-        ('archive_email', set()),
-        ('report_spam', set()),
-        ('trash_email', set()),
-        ('apply_label', {'label_name'}),
-        ('draft_reply', {'body'}),
-    ],
-)
-def test_each_action_tool_exports_its_schema(mailbox, name, extra):
+@pytest.mark.parametrize('name', ACTIONS)
+def test_each_action_tool_exports_its_schema(mailbox, name):
     schema = tool(mailbox, name).schema()
 
-    assert schema.description  # written for the model: what it does, when to use it
-    required = {'reason', 'message_id'} | extra
+    assert schema.description  # written for the model: what the tool does
+    required = {'reason', 'message_id'} | set(ACTIONS[name])
     assert set(schema.input_schema['required']) == required
     assert set(schema.input_schema['properties']) == required
     assert schema.input_schema['additionalProperties'] is False
     assert all(field.get('description') for field in schema.input_schema['properties'].values())
 
 
-@pytest.mark.parametrize(('name', 'arguments', 'change'), LABEL_ACTIONS)
-def test_a_label_action_changes_only_that_message_and_reports_the_change(
-    mailbox, name, arguments, change
-):
+@pytest.mark.parametrize(('name', 'change'), LABEL_CHANGES.items())
+def test_a_label_action_changes_only_that_message_and_reports_the_change(mailbox, name, change):
     before = mailbox.snapshot()
 
-    outcome = act(mailbox, name, **arguments)
+    outcome = act(mailbox, name)
 
     after = mailbox.snapshot()
     assert outcome.output.model_dump() == {'message_id': LUNCH, **change}
@@ -85,6 +73,21 @@ def test_a_label_action_changes_only_that_message_and_reports_the_change(
     }
     assert mailbox.list_drafts() == []
     assert outcome.origin == 'synthetic'
+
+
+@pytest.mark.parametrize(('name', 'change'), LABEL_CHANGES.items())
+def test_repeating_a_label_action_changes_nothing_and_reports_the_same_change(
+    mailbox, name, change
+):
+    # A LabelChange reports what the action applied, not a diff, so a repeat that
+    # changes nothing still reports the same labels.
+    act(mailbox, name)
+    before = mailbox.snapshot()
+
+    outcome = act(mailbox, name)
+
+    assert outcome.output.model_dump() == {'message_id': LUNCH, **change}
+    assert mailbox.snapshot() == before
 
 
 def test_draft_reply_only_creates_a_draft_on_the_message_thread(mailbox):

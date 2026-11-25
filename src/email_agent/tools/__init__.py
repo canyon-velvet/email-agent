@@ -35,4 +35,11 @@ __all__ = [
     'ToolOutcome',
     'FetchUnreadEmails',
     'ReadEmail',
+    'StarEmail',
+    'MarkAsRead',
+    'ArchiveEmail',
+    'ApplyLabel',
+    'ReportSpam',
+    'TrashEmail',
+    'DraftReply',
 ]
