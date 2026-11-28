@@ -16,13 +16,26 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
-class ModelError(Exception): ...
 
-class ModelRateLimitError(ModelError): ...
+class ModelError(Exception):
+    """A model request failed: a server error, no connection, or a reply we can't use.
 
-class ModelRequestError(ModelError): ...
+    The base of the errors below, so catching it catches them all. Raised as is, the
+    request may work if it's tried again later.
+    """
 
-class ModelAuthError(ModelError): ...
+
+class ModelRateLimitError(ModelError):
+    """The provider is limiting how fast we send requests: wait, then try again."""
+
+
+class ModelRequestError(ModelError):
+    """The provider rejected the request itself: sending it again unchanged won't help."""
+
+
+class ModelAuthError(ModelError):
+    """The provider won't accept us: the key is missing, wrong, or lacks permission."""
+
 
 @dataclass(frozen=True)
 class ToolSchema:
@@ -97,7 +110,7 @@ class StopReason(StrEnum):
     TOOL_USE = 'tool_use'  # wants its tool calls run
     MAX_TOKENS = 'max_tokens'  # cut off at the output limit
     REFUSAL = 'refusal'  # declined the request
-    CONTEXT_WINDOW_EXCEEDED = 'context_window_exceeded'
+    CONTEXT_WINDOW_EXCEEDED = 'context_window_exceeded'  # the conversation no longer fits
 
 
 @dataclass(frozen=True)
