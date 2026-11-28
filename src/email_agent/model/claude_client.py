@@ -2,7 +2,9 @@
 
 A reply from Claude keeps its content blocks in `provider_data`, and those blocks go
 back to the API exactly as they came, because Claude checks that its thinking blocks
-come back unchanged. Only this module imports the SDK; `email_agent.model` doesn't.
+come back unchanged. So Claude sees those blocks, not the message's text and tool
+calls: changing only those changes nothing Claude sees. Only this module imports the
+SDK; `email_agent.model` doesn't.
 """
 
 import os

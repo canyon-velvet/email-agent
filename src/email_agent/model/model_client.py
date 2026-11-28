@@ -18,10 +18,10 @@ from typing import Any, Protocol
 
 
 class ModelError(Exception):
-    """A model request failed: a server error, no connection, or a reply we can't use.
+    """A model request failed. The base of the errors below: catching it catches them all.
 
-    The base of the errors below, so catching it catches them all. Raised as is, the
-    request may work if it's tried again later.
+    Raised as is for everything they don't cover, such as a server error, no connection,
+    or a reply we can't use. The message says what went wrong.
     """
 
 
