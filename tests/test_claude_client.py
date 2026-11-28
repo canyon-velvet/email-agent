@@ -5,7 +5,10 @@ exactly what would go over the wire, and answer with canned Messages API respons
 """
 
 import json
+import subprocess
+import sys
 import time
+import traceback
 from typing import Any
 
 import anthropic
@@ -50,6 +53,7 @@ READ_EMAIL = ToolSchema(
 
 # Thinking text is empty under Opus 5.5's default display, but may be a summary.
 THINKING = {'type': 'thinking', 'thinking': 'Both look urgent.', 'signature': 'sig-opaque-abc'}
+REDACTED = {'type': 'redacted_thinking', 'data': 'encrypted-opaque-xyz'}
 TEXT = {'type': 'text', 'text': 'Let me read both.'}
 USE_1 = {'type': 'tool_use', 'id': 'toolu_1', 'name': 'read_email', 'input': {'message_id': 'm1'}}
 USE_2 = {'type': 'tool_use', 'id': 'toolu_2', 'name': 'read_email', 'input': {'message_id': 'm2'}}
@@ -114,15 +118,21 @@ def environment(monkeypatch):
     monkeypatch.setenv('ANTHROPIC_API_KEY', KEY)
 
 
-def claude(api: FakeAPI) -> ClaudeClient:
+def claude(api: FakeAPI, model: str = MODEL, **options: Any) -> ClaudeClient:
     transport = httpx2.MockTransport(api.handle)
-    return ClaudeClient(MODEL, http_client=anthropic.DefaultHttpxClient(transport=transport))
+    http_client = anthropic.DefaultHttpxClient(transport=transport)
+    return ClaudeClient(model, http_client=http_client, **options)
 
 
 def ask(api: FakeAPI, *messages) -> Any:
     return claude(api).complete(
         ModelRequest(system=SYSTEM, messages=messages or (UserMessage(TASK),), tools=(READ_EMAIL,))
     )
+
+
+def traceback_of(error: BaseException) -> str:
+    """The traceback as it would print, with every chained cause."""
+    return ''.join(traceback.format_exception(error))
 
 
 def without_nulls(blocks: list[dict]) -> list[dict]:
@@ -152,12 +162,26 @@ def test_a_request_is_sent_in_the_messages_api_shape():
     }
 
 
-def test_the_api_key_comes_from_the_environment():
+@pytest.mark.parametrize('value', [KEY, f'{KEY}\n', f'  {KEY} '])
+def test_the_api_key_comes_from_the_environment(monkeypatch, value):
+    # Spaces or a newline around the key, easy to get from a .env file, are dropped. Sent
+    # as is, they break the header, and the HTTP layer's error quotes the whole key.
+    monkeypatch.setenv('ANTHROPIC_API_KEY', value)
     api = FakeAPI(message(TEXT))
 
     ask(api)
 
     assert api.requests[0].headers['authorization'] == f'Bearer {KEY}'
+
+
+def test_the_request_uses_the_model_and_max_tokens_the_client_was_made_with():
+    api = FakeAPI(message(TEXT))
+
+    claude(api, 'claude-sonnet-5-5', max_tokens=2000).complete(
+        ModelRequest(system=SYSTEM, messages=(UserMessage(TASK),))
+    )
+
+    assert (api.body(0)['model'], api.body(0)['max_tokens']) == ('claude-sonnet-5-5', 2000)
 
 
 @pytest.mark.parametrize('value', [None, '', '   '])
@@ -202,6 +226,15 @@ def test_a_reply_becomes_text_tool_calls_a_stop_reason_and_usage():
     )
 
 
+def test_the_text_is_every_text_block_joined():
+    first = {'type': 'text', 'text': 'Reading it. '}
+    second = {'type': 'text', 'text': 'Then deciding.'}
+
+    reply = ask(FakeAPI(message(first, USE_1, second, stop_reason='tool_use')))
+
+    assert reply.message.text == 'Reading it. Then deciding.'
+
+
 def test_missing_cache_counts_are_zero():
     reply = ask(FakeAPI(message(TEXT)))
 
@@ -209,7 +242,9 @@ def test_missing_cache_counts_are_zero():
 
 
 def test_claudes_reply_goes_back_exactly_as_it_came_with_the_tool_results_after_it():
-    api = FakeAPI(message(THINKING, TEXT, USE_1, USE_2, stop_reason='tool_use'), message(TEXT))
+    api = FakeAPI(
+        message(THINKING, REDACTED, TEXT, USE_1, USE_2, stop_reason='tool_use'), message(TEXT)
+    )
     first = ask(api)
     results = ToolResultMessage(
         (
@@ -224,7 +259,7 @@ def test_claudes_reply_goes_back_exactly_as_it_came_with_the_tool_results_after_
     assert user == {'role': 'user', 'content': TASK}
     # Every block in order, the thinking signature intact: Opus 5.5 checks it.
     assert assistant['role'] == 'assistant'
-    assert without_nulls(assistant['content']) == [THINKING, TEXT, USE_1, USE_2]
+    assert without_nulls(assistant['content']) == [THINKING, REDACTED, TEXT, USE_1, USE_2]
     # All results in one user message, holding nothing but the results.
     assert tool_results['role'] == 'user'
     assert [
@@ -311,7 +346,9 @@ def test_a_refusal_may_have_no_content():
     ('status', 'error_type', 'error'),
     [
         (400, 'invalid_request_error', ModelRequestError),
+        (404, 'not_found_error', ModelRequestError),  # a mistyped model name
         (413, 'request_too_large', ModelRequestError),
+        (422, 'invalid_request_error', ModelRequestError),
         (401, 'authentication_error', ModelAuthError),
         (403, 'permission_error', ModelAuthError),
         (429, 'rate_limit_error', ModelRateLimitError),
@@ -329,7 +366,7 @@ def test_an_api_error_surfaces_as_our_own_error_with_what_went_wrong(status, err
     assert str(status) in message
     assert f'Something about {error_type}.' in message
     assert f'req_{status}' in message  # the request ID, for a support ticket
-    assert KEY not in message
+    assert KEY not in traceback_of(raised.value)
 
 
 def test_a_connection_failure_surfaces_as_a_model_error(monkeypatch):
@@ -347,6 +384,16 @@ def test_a_connection_failure_surfaces_as_a_model_error(monkeypatch):
 
     assert type(raised.value) is ModelError
     assert not isinstance(raised.value, anthropic.AnthropicError)
+    assert KEY not in traceback_of(raised.value)
+
+
+def test_importing_the_model_package_does_not_load_the_sdk():
+    # Only the Claude client needs the SDK: the loop, the router and the scripted client
+    # import the neutral types alone.
+    code = 'import sys, email_agent.agent, email_agent.model; print("anthropic" in sys.modules)'
+    result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True)
+
+    assert (result.returncode, result.stdout.strip()) == (0, 'False'), result.stderr
 
 
 def test_a_run_through_the_loop_records_claudes_thinking_and_never_the_key(
