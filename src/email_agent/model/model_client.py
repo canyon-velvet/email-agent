@@ -17,6 +17,26 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 
+class ModelError(Exception):
+    """A model request failed. The base of the errors below: catching it catches them all.
+
+    Raised as is for everything they don't cover, such as a server error, no connection,
+    or a reply we can't use. The message says what went wrong.
+    """
+
+
+class ModelRateLimitError(ModelError):
+    """The provider is limiting how fast we send requests: wait, then try again."""
+
+
+class ModelRequestError(ModelError):
+    """The provider rejected the request itself: sending it again unchanged won't help."""
+
+
+class ModelAuthError(ModelError):
+    """The provider won't accept us: the key is missing, wrong, or lacks permission."""
+
+
 @dataclass(frozen=True)
 class ToolSchema:
     """A tool the model may call: its name, when to use it, and its inputs.
@@ -90,6 +110,7 @@ class StopReason(StrEnum):
     TOOL_USE = 'tool_use'  # wants its tool calls run
     MAX_TOKENS = 'max_tokens'  # cut off at the output limit
     REFUSAL = 'refusal'  # declined the request
+    CONTEXT_WINDOW_EXCEEDED = 'context_window_exceeded'  # the conversation no longer fits
 
 
 @dataclass(frozen=True)

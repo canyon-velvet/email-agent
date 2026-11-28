@@ -30,8 +30,9 @@ from email_agent.trace import Trace
 class RunResult:
     """How a run ended, and the model's last text.
 
-    `status` is the model's stop reason ('end_turn', 'max_tokens' or 'refusal'), or
-    'max_iterations' if the run reached its limit before the model stopped.
+    `status` is the model's stop reason ('end_turn', 'max_tokens', 'refusal' or
+    'context_window_exceeded'), or 'max_iterations' if the run reached its limit before
+    the model stopped.
     """
 
     status: str

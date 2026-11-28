@@ -7,9 +7,13 @@ so importing this package never loads a provider SDK.
 from email_agent.model.model_client import (
     AssistantMessage,
     Message,
+    ModelAuthError,
     ModelClient,
+    ModelError,
+    ModelRateLimitError,
     ModelReply,
     ModelRequest,
+    ModelRequestError,
     StopReason,
     ToolCall,
     ToolResult,
@@ -35,4 +39,8 @@ __all__ = [
     'ModelClient',
     'ScriptedModelClient',
     'ScriptExhaustedError',
+    'ModelError',
+    'ModelAuthError',
+    'ModelRateLimitError',
+    'ModelRequestError',
 ]
