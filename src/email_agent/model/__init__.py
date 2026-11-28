@@ -17,6 +17,10 @@ from email_agent.model.model_client import (
     ToolSchema,
     Usage,
     UserMessage,
+    ModelError,
+    ModelAuthError,
+    ModelRateLimitError,
+    ModelRequestError
 )
 from email_agent.model.scripted_client import ScriptedModelClient, ScriptExhaustedError
 
@@ -35,4 +39,8 @@ __all__ = [
     'ModelClient',
     'ScriptedModelClient',
     'ScriptExhaustedError',
+    'ModelError',
+    'ModelAuthError',
+    'ModelRateLimitError',
+    'ModelRequestError'
 ]

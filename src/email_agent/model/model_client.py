@@ -16,6 +16,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
+class ModelError(Exception): ...
+
+class ModelRateLimitError(ModelError): ...
+
+class ModelRequestError(ModelError): ...
+
+class ModelAuthError(ModelError): ...
 
 @dataclass(frozen=True)
 class ToolSchema:
@@ -90,6 +97,7 @@ class StopReason(StrEnum):
     TOOL_USE = 'tool_use'  # wants its tool calls run
     MAX_TOKENS = 'max_tokens'  # cut off at the output limit
     REFUSAL = 'refusal'  # declined the request
+    CONTEXT_WINDOW_EXCEEDED = 'context_window_exceeded'
 
 
 @dataclass(frozen=True)
