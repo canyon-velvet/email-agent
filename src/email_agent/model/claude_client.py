@@ -59,8 +59,10 @@ class ClaudeClient:
     ) -> None:
         self._model = model
         self._max_tokens = max_tokens
-        key = os.environ.get('ANTHROPIC_API_KEY', '')
-        if not key.strip():
+        # Stripped once, here: a stray space or newline would break the header, and the
+        # HTTP layer's error for that quotes the whole key.
+        key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+        if not key:
             raise ModelAuthError(
                 'ANTHROPIC_API_KEY is not set: export it, or run with `uv run --env-file .env`'
             )
@@ -87,6 +89,7 @@ class ClaudeClient:
             raise ModelAuthError(_describe(e)) from e
         except (
             anthropic.BadRequestError,
+            anthropic.NotFoundError,  # a mistyped model name
             anthropic.ContentTooLargeError,
             anthropic.UnprocessableEntityError,
         ) as e:
